@@ -100,7 +100,7 @@ function ThreeColumnLayout({ centerContent }) {
                 textAlign: 'center',
               }}
             >
-              Welcome to Whistl3r
+              Welcome to Whistlers
             </Box>
           </Box>
         )}

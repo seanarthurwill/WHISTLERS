@@ -5,6 +5,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd c:\dev\service
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd c:\dev\services\Users; `$env:ASPNETCORE_ENVIRONMENT='Development'; dotnet run --launch-profile http"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd c:\dev\services\Assignors; `$env:ASPNETCORE_ENVIRONMENT='Development'; dotnet run --launch-profile http"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd c:\dev\services\Organizations; `$env:ASPNETCORE_ENVIRONMENT='Development'; dotnet run --launch-profile http"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd c:\dev\services\Games; `$env:ASPNETCORE_ENVIRONMENT='Development'; dotnet run --launch-profile http"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd c:\dev\services\ApiGateway; `$env:ASPNETCORE_ENVIRONMENT='Development'; dotnet run --launch-profile http"
 
 Start-Sleep -Seconds 5
@@ -24,3 +25,4 @@ Write-Host "Communication Service: http://localhost:5007" -ForegroundColor Yello
 Write-Host "Users Service: http://localhost:5001" -ForegroundColor DarkRed
 Write-Host "Assignors Service: http://localhost:5002" -ForegroundColor Blue
 Write-Host "Organizations Service: http://localhost:5003" -ForegroundColor Magenta
+Write-Host "Games Service: http://localhost:5163" -ForegroundColor Green

@@ -91,6 +91,11 @@ class AuthService {
       errors.confirmPassword = 'Passwords do not match';
     }
 
+    // League validation
+    if (!data.leagueId || data.leagueId === '' || parseInt(data.leagueId) <= 0) {
+      errors.leagueId = 'Please select a league';
+    }
+
     // Role validation
     if (!data.roleId || data.roleId === '' || parseInt(data.roleId) <= 0) {
       errors.roleId = 'Please select a role';
@@ -130,6 +135,7 @@ class AuthService {
         firstName: userData.firstName.trim(),
         lastName: userData.lastName.trim(),
         phone: userData.phone?.trim() || null,
+        leagueId: parseInt(userData.leagueId),
         roleId: parseInt(userData.roleId),
         encryptedPassword: encryptedPassword,
       };

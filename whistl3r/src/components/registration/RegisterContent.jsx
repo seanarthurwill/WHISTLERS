@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import StyledSelect from '../shared/StyledSelect';
 import authService from '../../services/authService';
 import whistlersLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
 import '../shared/App.css';
@@ -12,11 +13,13 @@ function RegisterContent() {
     firstName: '',
     lastName: '',
     phone: '',
+    leagueId: '',
     roleId: '',
     password: '',
     confirmPassword: '',
   });
 
+  const [leagues, setLeagues] = useState([]);
   const [roles, setRoles] = useState([]);
 
   const [errors, setErrors] = useState({});
@@ -24,6 +27,23 @@ function RegisterContent() {
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
+    const fetchLeagues = async () => {
+      try {
+        console.log('Fetching leagues from:', `${API_BASE_URL}/api/leagues`);
+        const response = await fetch(`${API_BASE_URL}/api/leagues`);
+        console.log('Leagues response status:', response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Leagues data received:', data);
+          setLeagues(data);
+        } else {
+          console.error('Failed to fetch leagues. Status:', response.status);
+        }
+      } catch (error) {
+        console.error('Failed to fetch leagues:', error);
+      }
+    };
+
     const fetchRoles = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/roles`);
@@ -36,6 +56,7 @@ function RegisterContent() {
       }
     };
 
+    fetchLeagues();
     fetchRoles();
   }, []);
 
@@ -74,6 +95,7 @@ function RegisterContent() {
           firstName: '',
           lastName: '',
           phone: '',
+          leagueId: '',
           roleId: '',
           password: '',
           confirmPassword: '',
@@ -185,27 +207,44 @@ function RegisterContent() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="roleId" className="whistler-text">Role *</label>
-            <select
-              id="roleId"
-              name="roleId"
-              value={formData.roleId}
+            <StyledSelect
+              label="League *"
+              id="leagueId"
+              name="leagueId"
+              value={formData.leagueId}
               onChange={handleChange}
-              className={errors.roleId ? 'input-error' : ''}
               required
               disabled={isLoading}
-            >
-              <option value="">Select a role...</option>
-              {roles.map((role) => (
-                <option key={role.roleId} value={role.roleId}>
-                  {role.roleName}
-                </option>
-              ))}
-            </select>
-            {errors.roleId && (
-              <span className="error-message whistler-text">{errors.roleId}</span>
-            )}
+              error={!!errors.leagueId}
+              helperText={errors.leagueId}
+              options={leagues.map(league => ({
+                value: league.leagueId,
+                label: league.leagueName
+              }))}
+              placeholder="Select a league..."
+            />
           </div>
+
+          {formData.leagueId && (
+            <div className="form-group">
+              <StyledSelect
+                label="Role *"
+                id="roleId"
+                name="roleId"
+                value={formData.roleId}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+                error={!!errors.roleId}
+                helperText={errors.roleId}
+                options={roles.map(role => ({
+                  value: role.roleId,
+                  label: role.roleName
+                }))}
+                placeholder="Select a role..."
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="password" className="whistler-text">Password *</label>
