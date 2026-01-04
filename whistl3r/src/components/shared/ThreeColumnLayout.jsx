@@ -32,7 +32,7 @@ function ThreeColumnLayout({ centerContent }) {
         sx={{
           flex: '0 0 30%',
           overflow: 'hidden',
-          backgroundColor: '#0087C7',
+          backgroundColor: '#0B0D0C',
           position: 'sticky',
           top: 0,
           height: '100vh',
@@ -111,7 +111,7 @@ function ThreeColumnLayout({ centerContent }) {
         sx={{
           flex: '0 0 30%',
           overflow: 'hidden',
-          backgroundColor: '#FE0000',
+          backgroundColor: '#0B0D0C',
           position: 'sticky',
           top: 0,
           height: '100vh',
