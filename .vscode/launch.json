@@ -1,0 +1,56 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Users Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-users",
+      "program": "${workspaceFolder}/services/Users/bin/Debug/net8.0/Users.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/services/Users",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/services/Users/Views"
+      }
+    },
+    {
+      "name": "Communication Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-communication",
+      "program": "${workspaceFolder}/services/Communication/bin/Debug/net8.0/Communication.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/services/Communication",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": "ApiGateway",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-apigateway",
+      "program": "${workspaceFolder}/services/ApiGateway/bin/Debug/net8.0/ApiGateway.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/services/ApiGateway",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": ".NET Core Attach",
+      "type": "coreclr",
+      "request": "attach"
+    }
+  ]
+}

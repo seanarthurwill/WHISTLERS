@@ -1,0 +1,63 @@
+@Users_HostAddress = http://localhost:5096
+
+### Get Encryption Key
+GET {{Users_HostAddress}}/api/auth/encryption-key
+Accept: application/json
+
+###
+
+### Register New User (with encrypted password)
+### First obtain the public key from the encryption-key endpoint
+### Then encrypt your password using the RSA public key
+POST {{Users_HostAddress}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "firstName": "Test",
+  "lastName": "User",
+  "encryptedPassword": "base64-encrypted-password-here"
+}
+
+###
+
+### Login with Email and Password
+POST {{Users_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "password123"
+}
+
+###
+
+### Get Current User (requires access token)
+GET {{Users_HostAddress}}/api/auth/me
+Authorization: Bearer {accessToken}
+
+###
+
+### Validate Token
+POST {{Users_HostAddress}}/api/auth/validate
+Content-Type: application/json
+
+{
+  "token": "{accessToken}"
+}
+
+###
+
+### Refresh Token
+POST {{Users_HostAddress}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{refreshToken}"
+}
+
+###
+
+### Logout
+POST {{Users_HostAddress}}/api/auth/logout
+Authorization: Bearer {accessToken}

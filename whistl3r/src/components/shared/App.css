@@ -1,0 +1,42 @@
+.whistler-text {
+  font-family: 'LilGrotesk', Arial, sans-serif;
+  font-size: 12px;
+}
+
+.whistler-text-heading {
+  font-family: 'LilGrotesk', Arial, sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.whistler-text-subheading {
+  font-family: 'LilGrotesk', Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+@keyframes scrollUp {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-33.33%);
+  }
+}
+
+@keyframes scrollDown {
+  0% {
+    transform: translateY(-33.33%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.scroll-up {
+  animation: scrollUp 79s linear infinite;
+}
+
+.scroll-down {
+  animation: scrollDown 79s linear infinite;
+}

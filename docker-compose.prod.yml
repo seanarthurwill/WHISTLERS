@@ -1,0 +1,127 @@
+version: '3.8'
+
+services:
+  users:
+    build:
+      context: .
+      dockerfile: Dockerfile.users
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=whistl3r-1-instance-1.cno80gy6gzh5.us-east-2.rds.amazonaws.com;Port=5432;Database=whistl3r_data;Username=headofficial;Password=0pt1m0sPr1m3.;SSL Mode=Require;
+      - Jwt__SecretKey=your-super-secret-key-that-is-at-least-32-characters-long-change-in-production
+      - Jwt__Issuer=Whistl3r
+      - Jwt__Audience=Whistl3rAPI
+      - Jwt__ExpirationMinutes=60
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+  games:
+    build:
+      context: .
+      dockerfile: Dockerfile.games
+    ports:
+      - "5002:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=whistl3r-1-instance-1.cno80gy6gzh5.us-east-2.rds.amazonaws.com;Port=5432;Database=whistl3r_data;Username=headofficial;Password=0pt1m0sPr1m3.;SSL Mode=Require;
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+  assignors:
+    build:
+      context: .
+      dockerfile: Dockerfile.assignors
+    ports:
+      - "5003:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=whistl3r-1-instance-1.cno80gy6gzh5.us-east-2.rds.amazonaws.com;Port=5432;Database=whistl3r_data;Username=headofficial;Password=0pt1m0sPr1m3.;SSL Mode=Require;
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+  groups:
+    build:
+      context: .
+      dockerfile: Dockerfile.groups
+    ports:
+      - "5004:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=whistl3r-1-instance-1.cno80gy6gzh5.us-east-2.rds.amazonaws.com;Port=5432;Database=whistl3r_data;Username=headofficial;Password=0pt1m0sPr1m3.;SSL Mode=Require;
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+  organizations:
+    build:
+      context: .
+      dockerfile: Dockerfile.organizations
+    ports:
+      - "5005:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=whistl3r-1-instance-1.cno80gy6gzh5.us-east-2.rds.amazonaws.com;Port=5432;Database=whistl3r_data;Username=headofficial;Password=0pt1m0sPr1m3.;SSL Mode=Require;
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+  payscale:
+    build:
+      context: .
+      dockerfile: Dockerfile.payscale
+    ports:
+      - "5006:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=whistl3r-1-instance-1.cno80gy6gzh5.us-east-2.rds.amazonaws.com;Port=5432;Database=whistl3r_data;Username=headofficial;Password=0pt1m0sPr1m3.;SSL Mode=Require;
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+  reviews:
+    build:
+      context: .
+      dockerfile: Dockerfile.reviews
+    ports:
+      - "5007:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_HTTP_PORTS=8080
+      - ConnectionStrings__DefaultConnection=Host=whistl3r-1-instance-1.cno80gy6gzh5.us-east-2.rds.amazonaws.com;Port=5432;Database=whistl3r_data;Username=headofficial;Password=0pt1m0sPr1m3.;SSL Mode=Require;
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+  # Optional: Nginx reverse proxy for API Gateway
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - users
+      - games
+      - assignors
+      - groups
+      - organizations
+      - payscale
+      - reviews
+    restart: unless-stopped
+    networks:
+      - whistl3r-net
+
+networks:
+  whistl3r-net:
+    driver: bridge

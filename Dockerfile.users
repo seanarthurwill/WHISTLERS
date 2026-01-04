@@ -1,0 +1,19 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["services/Users/Users.csproj", "services/Users/"]
+RUN dotnet restore "services/Users/Users.csproj"
+COPY services/Users/ services/Users/
+WORKDIR "/src/services/Users"
+RUN dotnet build "Users.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "Users.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "Users.dll"]

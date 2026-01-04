@@ -1,0 +1,92 @@
+using Microsoft.EntityFrameworkCore;
+using GamesService.Models;
+
+namespace GamesService.Data
+{
+    public class ApplicationDbContext : DbContext
+    {
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+
+        public DbSet<Game> Games { get; set; } = null!;
+        public DbSet<GameAssignment> GameAssignments { get; set; } = null!;
+        public DbSet<Sport> Sports { get; set; } = null!;
+        public DbSet<League> Leagues { get; set; } = null!;
+        public DbSet<AgeLevel> AgeLevels { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Game configuration
+            modelBuilder.Entity<Game>(entity =>
+            {
+                entity.HasKey(e => e.GameId);
+                entity.ToTable("games");
+                
+                entity.Property(e => e.HomeTeam).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.AwayTeam).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Status).HasMaxLength(20);
+                
+                entity.HasIndex(e => e.OrganizationId);
+                entity.HasIndex(e => e.GameDate);
+                entity.HasIndex(e => e.VenueId);
+                entity.HasIndex(e => e.Status);
+            });
+
+            // GameAssignment configuration
+            modelBuilder.Entity<GameAssignment>(entity =>
+            {
+                entity.HasKey(e => e.GameAssignmentId);
+                entity.ToTable("game_assignments");
+                
+                entity.Property(e => e.AssignmentStatus).HasMaxLength(20);
+                entity.Property(e => e.BasePayAmount).HasColumnType("decimal(10,2)");
+                entity.Property(e => e.TravelPayAmount).HasColumnType("decimal(10,2)");
+                entity.Property(e => e.MultiplierApplied).HasColumnType("decimal(5,2)");
+                entity.Property(e => e.FinalPayAmount).HasColumnType("decimal(10,2)");
+                entity.Property(e => e.DistanceKm).HasColumnType("decimal(10,2)");
+                
+                entity.HasOne(e => e.Game)
+                    .WithMany(g => g.Assignments)
+                    .HasForeignKey(e => e.GameId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => e.GameId);
+                entity.HasIndex(e => e.OfficialId);
+                entity.HasIndex(e => e.AssignmentStatus);
+            });
+
+            // Sport configuration
+            modelBuilder.Entity<Sport>(entity =>
+            {
+                entity.HasKey(e => e.SportId);
+                entity.ToTable("sports");
+                
+                entity.Property(e => e.SportName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.SportCode).HasMaxLength(20);
+                entity.HasIndex(e => e.SportName).IsUnique();
+            });
+
+            // League configuration
+            modelBuilder.Entity<League>(entity =>
+            {
+                entity.HasKey(e => e.LeagueId);
+                entity.ToTable("leagues");
+                
+                entity.Property(e => e.LeagueName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Season).HasMaxLength(50);
+                entity.HasIndex(e => e.SportId);
+                entity.HasIndex(e => e.Season);
+            });
+
+            // AgeLevel configuration
+            modelBuilder.Entity<AgeLevel>(entity =>
+            {
+                entity.HasKey(e => e.AgeLevelId);
+                entity.ToTable("age_levels");
+                
+                entity.Property(e => e.AgeLevelName).IsRequired().HasMaxLength(50);
+            });
+        }
+    }
+}

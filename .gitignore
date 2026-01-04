@@ -1,0 +1,23 @@
+@"
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+.vs/
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+.env.local
+
+# AWS Credentials
+.aws/
+
+# Logs
+*.log
+"@ | Out-File -FilePath .gitignore -Encoding utf8

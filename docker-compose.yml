@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "P@ssw0rd123!"
+    ports:
+      - "1433:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'select 1' | /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${SA_PASSWORD} -b"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - mssql-data:/var/opt/mssql
+    networks:
+      - whistl3r-net
+
+  organizations:
+    build: ./services/Organizations
+    ports:
+      - "5001:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - whistl3r-net
+
+  payscale:
+    build: ./services/PayScale
+    ports:
+      - "5002:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - whistl3r-net
+
+  reviews:
+    build: ./services/Reviews
+    ports:
+      - "5003:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - whistl3r-net
+
+  groups:
+    build: ./services/Groups
+    ports:
+      - "5004:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - whistl3r-net
+
+  admin:
+    build: ./services/Admin
+    ports:
+      - "5005:80"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - whistl3r-net
+
+volumes:
+  mssql-data:
+
+networks:
+  whistl3r-net:
+    driver: bridge
