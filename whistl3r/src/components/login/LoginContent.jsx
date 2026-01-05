@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLoading } from '../../contexts/LoadingContext';
 import authService from '../../services/authService';
 import whistlersLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
 import '../shared/App.css';
@@ -7,6 +8,8 @@ import './Login.css';
 
 function LoginContent() {
   const navigate = useNavigate();
+  const { showLoading, hideLoading } = useLoading();
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -36,6 +39,7 @@ function LoginContent() {
     e.preventDefault();
     setErrors({});
     setIsLoading(true);
+    showLoading();
 
     try {
       const result = await authService.login(formData);
@@ -50,6 +54,7 @@ function LoginContent() {
       setErrors({ general: 'An unexpected error occurred. Please try again.' });
     } finally {
       setIsLoading(false);
+      hideLoading();
     }
   };
 

@@ -2,7 +2,7 @@ import { Select, MenuItem, FormControl, FormHelperText } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
 // Custom styled Select with white background, border, and black placeholder
-const CustomSelect = styled(Select)(({ theme }) => ({
+const CustomSelect = styled(Select)(() => ({
   backgroundColor: '#fff',
   borderRadius: '8px',
   '& .MuiOutlinedInput-notchedOutline': {

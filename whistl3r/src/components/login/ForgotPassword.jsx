@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, TextField, Button, Alert, Typography } from '@mui/material';
+import { useLoading } from '../../contexts/LoadingContext';
 import ThreeColumnLayout from '../shared/ThreeColumnLayout';
 import whistlersLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
 import '../shared/App.css';
@@ -9,6 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 function ForgotPassword() {
   const navigate = useNavigate();
+  const { showLoading, hideLoading } = useLoading();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +45,7 @@ function ForgotPassword() {
     }
 
     setIsLoading(true);
+    showLoading();
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/request-password-reset`, {
@@ -84,6 +87,7 @@ function ForgotPassword() {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
+      hideLoading();
     }
   };
 

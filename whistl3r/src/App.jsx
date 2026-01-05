@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { LoadingProvider } from './contexts/LoadingContext';
+import LoadingSpinner from './components/shared/LoadingSpinner';
 import LandingPage from './components/LandingPage';
 import Register from './components/registration/Register';
 import Login from './components/login/Login';
@@ -8,17 +10,20 @@ import './App.css';
 
 function App() {
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-        </Routes>
-      </div>
-    </Router>
+    <LoadingProvider>
+      <Router>
+        <div className="App">
+          <LoadingSpinner />
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Routes>
+        </div>
+      </Router>
+    </LoadingProvider>
   );
 }
 

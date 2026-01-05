@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, TextField, Button, Alert } from '@mui/material';
+import { useLoading } from '../../contexts/LoadingContext';
 import ThreeColumnLayout from '../shared/ThreeColumnLayout';
 import whistlersLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
 import '../shared/App.css';
@@ -9,6 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function ResetPassword() {
   const navigate = useNavigate();
+  const { showLoading, hideLoading } = useLoading();
   const [formData, setFormData] = useState({
     resetCode: '',
     newPassword: '',
@@ -67,6 +69,7 @@ function ResetPassword() {
     }
 
     setIsLoading(true);
+    showLoading();
 
     try {
       const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
@@ -100,6 +103,7 @@ function ResetPassword() {
       });
     } finally {
       setIsLoading(false);
+      hideLoading();
     }
   };
 

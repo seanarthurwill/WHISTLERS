@@ -1,25 +1,31 @@
 import { useState, useEffect } from 'react';
 import StyledSelect from '../shared/StyledSelect';
+import { useLoading } from '../../contexts/LoadingContext';
 import authService from '../../services/authService';
 import whistlersLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
 import '../shared/App.css';
 import './Register.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function RegisterContent() {
+  const { showLoading, hideLoading } = useLoading();
+  
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
     lastName: '',
     phone: '',
+    sportId: '',
     leagueId: '',
     roleId: '',
     password: '',
     confirmPassword: '',
   });
 
+  const [sports, setSports] = useState([]);
   const [leagues, setLeagues] = useState([]);
+  const [allLeagues, setAllLeagues] = useState([]);
   const [roles, setRoles] = useState([]);
 
   const [errors, setErrors] = useState({});
@@ -27,38 +33,76 @@ function RegisterContent() {
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
-    const fetchLeagues = async () => {
+    const fetchData = async () => {
+      showLoading();
       try {
-        console.log('Fetching leagues from:', `${API_BASE_URL}/api/leagues`);
-        const response = await fetch(`${API_BASE_URL}/api/leagues`);
-        console.log('Leagues response status:', response.status);
-        if (response.ok) {
-          const data = await response.json();
-          console.log('Leagues data received:', data);
-          setLeagues(data);
-        } else {
-          console.error('Failed to fetch leagues. Status:', response.status);
+        const [sportsResponse, leaguesResponse, rolesResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/sports`),
+          fetch(`${API_BASE_URL}/leagues`),
+          fetch(`${API_BASE_URL}/roles`)
+        ]);
+
+        if (sportsResponse.ok) {
+          const sportsData = await sportsResponse.json();
+          setSports(sportsData);
+          // Auto-select if only one sport
+          if (sportsData.length === 1) {
+            setFormData((prev) => ({
+              ...prev,
+              sportId: sportsData[0].sportId,
+            }));
+          }
+        }
+
+        if (leaguesResponse.ok) {
+          const leaguesData = await leaguesResponse.json();
+          setAllLeagues(leaguesData);
+        }
+
+        if (rolesResponse.ok) {
+          const rolesData = await rolesResponse.json();
+          setRoles(rolesData);
         }
       } catch (error) {
-        console.error('Failed to fetch leagues:', error);
+        console.error('Failed to fetch data:', error);
+      } finally {
+        hideLoading();
       }
     };
 
-    const fetchRoles = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/roles`);
-        if (response.ok) {
-          const data = await response.json();
-          setRoles(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch roles:', error);
-      }
-    };
-
-    fetchLeagues();
-    fetchRoles();
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Filter leagues when sport changes
+  useEffect(() => {
+    if (formData.sportId) {
+      const filteredLeagues = allLeagues.filter(
+        (league) => league.sportId === parseInt(formData.sportId)
+      );
+      setLeagues(filteredLeagues);
+      
+      // Auto-select if only one league
+      if (filteredLeagues.length === 1) {
+        setFormData((prev) => ({
+          ...prev,
+          leagueId: filteredLeagues[0].leagueId,
+        }));
+      } else {
+        // Clear league selection if there are multiple options or sport changes
+        setFormData((prev) => ({
+          ...prev,
+          leagueId: '',
+        }));
+      }
+    } else {
+      setLeagues([]);
+      setFormData((prev) => ({
+        ...prev,
+        leagueId: '',
+      }));
+    }
+  }, [formData.sportId, allLeagues]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -95,6 +139,7 @@ function RegisterContent() {
           firstName: '',
           lastName: '',
           phone: '',
+          sportId: '',
           leagueId: '',
           roleId: '',
           password: '',
@@ -208,22 +253,43 @@ function RegisterContent() {
 
           <div className="form-group">
             <StyledSelect
-              label="League *"
-              id="leagueId"
-              name="leagueId"
-              value={formData.leagueId}
+              label="Sport *"
+              id="sportId"
+              name="sportId"
+              value={formData.sportId}
               onChange={handleChange}
               required
               disabled={isLoading}
-              error={!!errors.leagueId}
-              helperText={errors.leagueId}
-              options={leagues.map(league => ({
-                value: league.leagueId,
-                label: league.leagueName
+              error={!!errors.sportId}
+              helperText={errors.sportId}
+              options={sports.map(sport => ({
+                value: sport.sportId,
+                label: sport.sportName
               }))}
-              placeholder="Select a league..."
+              placeholder="Select a sport..."
             />
           </div>
+
+          {formData.sportId && (
+            <div className="form-group">
+              <StyledSelect
+                label="League *"
+                id="leagueId"
+                name="leagueId"
+                value={formData.leagueId}
+                onChange={handleChange}
+                required
+                disabled={isLoading}
+                error={!!errors.leagueId}
+                helperText={errors.leagueId}
+                options={leagues.map(league => ({
+                  value: league.leagueId,
+                  label: league.leagueName
+                }))}
+                placeholder="Select a league..."
+              />
+            </div>
+          )}
 
           {formData.leagueId && (
             <div className="form-group">
