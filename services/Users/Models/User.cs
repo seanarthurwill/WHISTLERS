@@ -11,9 +11,7 @@ namespace UsersService.Models
         [Column("tenant_id")]
         public Guid TenantId { get; set; } = Guid.NewGuid();
         
-        [Column("role_id")]
-        public int? RoleId { get; set; }
-        
+
         [Column("first_name")]
         public string FirstName { get; set; } = null!;
         
@@ -53,8 +51,8 @@ namespace UsersService.Models
         [Column("reset_password_guid")]
         public Guid? ResetPasswordGuid { get; set; }
 
-        // Navigation property
-        public Role? Role { get; set; }
+        // Navigation properties
+        public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 
     [Table("roles")]
@@ -76,6 +74,29 @@ namespace UsersService.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
-        public ICollection<User> Users { get; set; } = new List<User>();
+        public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    }
+
+    [Table("user_roles")]
+    public class UserRole
+    {
+        [Column("user_role_id")]
+        public int UserRoleId { get; set; }
+
+        [Column("user_id")]
+        public int UserId { get; set; }
+
+        [Column("role_id")]
+        public int RoleId { get; set; }
+
+        [Column("assigned_at")]
+        public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("assigned_by")]
+        public int? AssignedBy { get; set; }
+
+        // Navigation properties
+        public User User { get; set; } = null!;
+        public Role Role { get; set; } = null!;
     }
 }

@@ -14,6 +14,9 @@ namespace OrganizationsService.Models
         [Column("organization_name")]
         public string OrganizationName { get; set; } = null!;
         
+        [Column("organization_abbr")]
+        public string? OrganizationAbbr { get; set; }
+        
         [Column("organization_type")]
         public string? OrganizationType { get; set; }
         

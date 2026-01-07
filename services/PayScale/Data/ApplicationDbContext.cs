@@ -23,7 +23,6 @@ namespace PayScaleService.Data
                 entity.Property(e => e.PayMultiplier).HasColumnType("decimal(5,2)");
                 entity.Property(e => e.PayPerKm).HasColumnType("decimal(10,2)");
                 
-                entity.HasIndex(e => e.PayScaleTemplateId);
                 entity.HasIndex(e => e.SportId);
             });
         }

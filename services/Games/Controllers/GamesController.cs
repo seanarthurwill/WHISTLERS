@@ -22,6 +22,13 @@ namespace GamesService.Controllers
             return Ok(games);
         }
 
+        [HttpGet("details-report")]
+        public async Task<ActionResult<IEnumerable<GameDetailsReport>>> GetDetailsReport()
+        {
+            var report = await _gameService.GetGameDetailsReportAsync();
+            return Ok(report);
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<Game>> GetById(int id)
         {

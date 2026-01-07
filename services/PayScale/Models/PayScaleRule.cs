@@ -8,9 +8,6 @@ namespace PayScaleService.Models
         [Column("pay_scale_rule_id")]
         public int PayScaleRuleId { get; set; }
         
-        [Column("pay_scale_template_id")]
-        public int? PayScaleTemplateId { get; set; }
-        
         [Column("sport_id")]
         public int? SportId { get; set; }
         

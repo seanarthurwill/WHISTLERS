@@ -9,6 +9,7 @@ namespace GamesService.Data
 
         public DbSet<Game> Games { get; set; } = null!;
         public DbSet<GameAssignment> GameAssignments { get; set; } = null!;
+        public DbSet<GameStatus> GameStatuses { get; set; } = null!;
         public DbSet<Sport> Sports { get; set; } = null!;
         public DbSet<League> Leagues { get; set; } = null!;
         public DbSet<AgeLevel> AgeLevels { get; set; } = null!;
@@ -25,12 +26,17 @@ namespace GamesService.Data
                 
                 entity.Property(e => e.HomeTeam).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.AwayTeam).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Status).HasMaxLength(20);
+                
+                entity.HasOne(e => e.GameStatus)
+                    .WithMany(gs => gs.Games)
+                    .HasForeignKey(e => e.GameStatusId)
+                    .OnDelete(DeleteBehavior.Restrict);
                 
                 entity.HasIndex(e => e.OrganizationId);
                 entity.HasIndex(e => e.GameDate);
                 entity.HasIndex(e => e.VenueId);
-                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.GameStatusId);
+                entity.HasIndex(e => e.PayScaleRuleId);
             });
 
             // GameAssignment configuration
@@ -86,6 +92,17 @@ namespace GamesService.Data
                 entity.ToTable("age_levels");
                 
                 entity.Property(e => e.AgeLevelName).IsRequired().HasMaxLength(50);
+            });
+
+            // GameStatus configuration
+            modelBuilder.Entity<GameStatus>(entity =>
+            {
+                entity.HasKey(e => e.GameStatusId);
+                entity.ToTable("game_status");
+                
+                entity.Property(e => e.GameStatusName).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
         }
     }

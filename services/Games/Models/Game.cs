@@ -41,11 +41,11 @@ namespace GamesService.Models
         [Column("override_game_length_minutes")]
         public int? OverrideGameLengthMinutes { get; set; }
         
-        [Column("pay_scale_template_id")]
-        public int? PayScaleTemplateId { get; set; }
+        [Column("pay_scale_rule_id")]
+        public int? PayScaleRuleId { get; set; }
         
-        [Column("status")]
-        public string Status { get; set; } = "Scheduled"; // Scheduled, Assigned, InProgress, Completed, Cancelled
+        [Column("game_status_id")]
+        public int GameStatusId { get; set; }
         
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -54,6 +54,7 @@ namespace GamesService.Models
         public int CreatedBy { get; set; }
 
         // Navigation properties
+        public GameStatus? GameStatus { get; set; }
         public ICollection<GameAssignment> Assignments { get; set; } = new List<GameAssignment>();
     }
 

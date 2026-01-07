@@ -14,7 +14,10 @@ namespace UsersService.Services
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
         public string? Phone { get; set; }
-        public string EncryptedPassword { get; set; } = null!;        public int RoleId { get; set; }    }
+        public int LeagueId { get; set; }
+        public int RoleId { get; set; }
+        public string EncryptedPassword { get; set; } = null!;
+    }
 
     public class RegistrationResult
     {

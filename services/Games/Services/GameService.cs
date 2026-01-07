@@ -10,6 +10,7 @@ namespace GamesService.Services
         Task<Game?> GetGameByIdAsync(int id);
         Task<IEnumerable<Game>> GetGamesByDateRangeAsync(DateTime startDate, DateTime endDate);
         Task<IEnumerable<Game>> GetGamesByStatusAsync(string status);
+        Task<IEnumerable<GameDetailsReport>> GetGameDetailsReportAsync();
         Task<Game> CreateGameAsync(Game game);
         Task<Game?> UpdateGameAsync(int id, Game game);
         Task<bool> DeleteGameAsync(int id);
@@ -85,10 +86,16 @@ namespace GamesService.Services
 
         public async Task<IEnumerable<Game>> GetGamesByStatusAsync(string status)
         {
-            return await _context.Games
-                .Where(g => g.Status == status)
-                .OrderBy(g => g.GameDate)
-                .ToListAsync();
+            // Note: This method now expects a game status ID as string, or needs refactoring to accept int
+            if (int.TryParse(status, out int statusId))
+            {
+                return await _context.Games
+                    .Where(g => g.GameStatusId == statusId)
+                    .OrderBy(g => g.GameDate)
+                    .ToListAsync();
+            }
+            
+            return new List<Game>();
         }
 
         public async Task<Game> CreateGameAsync(Game game)
@@ -112,7 +119,7 @@ namespace GamesService.Services
             existing.LeagueId = game.LeagueId;
             existing.AgeLevelId = game.AgeLevelId;
             existing.OrganizationId = game.OrganizationId;
-            existing.Status = game.Status;
+            existing.GameStatusId = game.GameStatusId;
 
             await _context.SaveChangesAsync();
             return existing;
@@ -131,6 +138,71 @@ namespace GamesService.Services
         public async Task<bool> GameExistsAsync(int id)
         {
             return await _context.Games.AnyAsync(g => g.GameId == id);
+        }
+
+        public async Task<IEnumerable<GameDetailsReport>> GetGameDetailsReportAsync()
+        {
+            var sql = @"
+                SELECT 
+                    g.game_id,
+                    s.sport_name,
+                    l.league_name,
+                    al.age_level_name,
+                    g.game_date,
+                    g.game_time,
+                    v.venue_name,
+                    g.home_team AS home_club,
+                    g.away_team AS away_club,
+                    gs.game_status_name,
+                    p.position_name,
+                    alp.is_required AS position_required,
+                    alp.min_required,
+                    alp.max_allowed,
+                    CASE 
+                        WHEN ga.assignment_status IS NOT NULL THEN ga.assignment_status
+                        WHEN alp.is_required = true THEN 'Open'
+                        ELSE 'Not Required'
+                    END AS position_status,
+                    CONCAT(u.first_name, ' ', u.last_name) AS assigned_official,
+                    STRING_AGG(gn.note_text, '; ' ORDER BY gn.created_at) AS game_notes
+                FROM games g
+                LEFT JOIN sports s ON g.organization_id = (SELECT organization_id FROM organizations WHERE organization_id = g.organization_id LIMIT 1)
+                    AND s.sport_id = (SELECT sport_id FROM leagues WHERE league_id = g.league_id)
+                LEFT JOIN leagues l ON g.league_id = l.league_id
+                LEFT JOIN age_levels al ON g.age_level_id = al.age_level_id
+                LEFT JOIN venues v ON g.venue_id = v.venue_id
+                LEFT JOIN game_status gs ON g.game_status_id = gs.game_status_id
+                LEFT JOIN age_level_positions alp ON al.age_level_id = alp.age_level_id AND alp.is_active = true
+                LEFT JOIN positions p ON alp.position_id = p.position_id
+                LEFT JOIN game_assignments ga ON g.game_id = ga.game_id AND ga.position_id = p.position_id
+                LEFT JOIN officials o ON ga.official_id = o.official_id
+                LEFT JOIN users u ON o.user_id = u.user_id
+                LEFT JOIN game_notes gn ON g.game_id = gn.game_id
+                GROUP BY 
+                    g.game_id,
+                    s.sport_name,
+                    l.league_name,
+                    al.age_level_name,
+                    g.game_date,
+                    g.game_time,
+                    v.venue_name,
+                    g.home_team,
+                    g.away_team,
+                    gs.game_status_name,
+                    p.position_name,
+                    alp.is_required,
+                    alp.min_required,
+                    alp.max_allowed,
+                    ga.assignment_status,
+                    u.first_name,
+                    u.last_name
+                ORDER BY g.game_date, g.game_time, g.game_id";
+
+            var result = await _context.Database
+                .SqlQueryRaw<GameDetailsReport>(sql)
+                .ToListAsync();
+
+            return result;
         }
     }
 
@@ -283,18 +355,33 @@ namespace GamesService.Services
     public class LeagueService : ILeagueService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<LeagueService> _logger;
 
-        public LeagueService(ApplicationDbContext context)
+        public LeagueService(ApplicationDbContext context, ILogger<LeagueService> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<League>> GetAllLeaguesAsync()
         {
-            return await _context.Leagues
-                .Where(l => l.IsActive)
-                .OrderBy(l => l.LeagueName)
-                .ToListAsync();
+            try
+            {
+                _logger.LogInformation("Attempting to fetch leagues from database");
+                _logger.LogInformation($"Connection String: {_context.Database.GetConnectionString()}");
+                
+                var leagues = await _context.Leagues
+                    .OrderBy(l => l.LeagueName)
+                    .ToListAsync();
+                    
+                _logger.LogInformation($"Successfully fetched {leagues.Count()} leagues");
+                return leagues;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching leagues");
+                throw;
+            }
         }
 
         public async Task<League?> GetLeagueByIdAsync(int id)

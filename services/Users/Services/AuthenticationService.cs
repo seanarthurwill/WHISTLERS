@@ -221,12 +221,18 @@ namespace UsersService.Services
                 }
 
                 // Get user role
-                Role? role = null;
-                if (user.RoleId.HasValue)
+                var roles = new List<Role>();
+                if (user.UserRoles.Any())
                 {
-                    role = await _roleService.GetRoleByIdAsync(user.RoleId.Value);
+                    foreach (var userRole in user.UserRoles)
+                    {
+                        var r = await _roleService.GetRoleByIdAsync(userRole.RoleId);
+                        if (r != null)
+                        {
+                            roles.Add(r);
+                        }
+                    }
                 }
-                var roles = role != null ? new List<Role> { role } : new List<Role>();
 
                 // Generate tokens
                 var accessToken = _jwtService.GenerateAccessToken(user, roles);
