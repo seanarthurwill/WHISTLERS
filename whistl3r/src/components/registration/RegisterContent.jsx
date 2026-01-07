@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Tooltip } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import StyledSelect from '../shared/StyledSelect';
 import { useLoading } from '../../contexts/LoadingContext';
 import authService from '../../services/authService';
@@ -18,7 +20,8 @@ function RegisterContent() {
     phone: '',
     sportId: '',
     leagueId: '',
-    roleId: '',
+    roleIds: [],
+    roleOrganizations: {}, // { roleId: [orgId1, orgId2, ...] }
     password: '',
     confirmPassword: '',
   });
@@ -27,6 +30,7 @@ function RegisterContent() {
   const [leagues, setLeagues] = useState([]);
   const [allLeagues, setAllLeagues] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
 
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -36,10 +40,11 @@ function RegisterContent() {
     const fetchData = async () => {
       showLoading();
       try {
-        const [sportsResponse, leaguesResponse, rolesResponse] = await Promise.all([
+        const [sportsResponse, leaguesResponse, rolesResponse, organizationsResponse] = await Promise.all([
           fetch(`${API_BASE_URL}/sports`),
           fetch(`${API_BASE_URL}/leagues`),
-          fetch(`${API_BASE_URL}/roles`)
+          fetch(`${API_BASE_URL}/roles`),
+          fetch(`${API_BASE_URL}/organizations`)
         ]);
 
         if (sportsResponse.ok) {
@@ -62,6 +67,11 @@ function RegisterContent() {
         if (rolesResponse.ok) {
           const rolesData = await rolesResponse.json();
           setRoles(rolesData);
+        }
+
+        if (organizationsResponse.ok) {
+          const organizationsData = await organizationsResponse.json();
+          setOrganizations(organizationsData);
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -120,10 +130,33 @@ function RegisterContent() {
     }
   };
 
+  const handleRoleOrganizationChange = (roleId, selectedOrgIds) => {
+    setFormData((prev) => ({
+      ...prev,
+      roleOrganizations: {
+        ...prev.roleOrganizations,
+        [roleId]: selectedOrgIds,
+      },
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
     setSuccessMessage('');
+
+    // Validate that at least one organization is selected
+    const hasOrganizations = Object.values(formData.roleOrganizations).some(
+      orgIds => Array.isArray(orgIds) && orgIds.length > 0
+    );
+
+    if (!hasOrganizations) {
+      setErrors({ 
+        organizations: 'Please select at least one organization for your role(s)' 
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -141,7 +174,8 @@ function RegisterContent() {
           phone: '',
           sportId: '',
           leagueId: '',
-          roleId: '',
+          roleIds: [],
+          roleOrganizations: {},
           password: '',
           confirmPassword: '',
         });
@@ -166,7 +200,8 @@ function RegisterContent() {
           />
         </div>
         <h2 className="whistler-text-heading" style={{ textAlign: 'center' }}>Create Account</h2>
-        <p className="register-subtitle whistler-text-subheading" style={{ textAlign: 'center' }}>Join Whistlers to get started</p>
+        <p className="register-subtitle whistler-text-subheading" style={{ textAlign: 'center' }}>Join Whistlers to get started.  After registering there will be short 
+          delay prior to activation while your account information is reviewed.  You will receive an email notification once your account is activated.</p>
 
         {successMessage && (
           <div className="alert alert-success">
@@ -183,7 +218,7 @@ function RegisterContent() {
         <form onSubmit={handleSubmit} className="register-form">
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="firstName" className="whistler-text">First Name *</label>
+              <label htmlFor="firstName" className="whistler-text">First Name <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="text"
                 id="firstName"
@@ -200,7 +235,7 @@ function RegisterContent() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="lastName" className="whistler-text">Last Name *</label>
+              <label htmlFor="lastName" className="whistler-text">Last Name <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="text"
                 id="lastName"
@@ -218,7 +253,7 @@ function RegisterContent() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="email" className="whistler-text">Email *</label>
+            <label htmlFor="email" className="whistler-text">Email <span style={{ color: '#ef4444' }}>*</span></label>
             <input
               type="email"
               id="email"
@@ -251,9 +286,30 @@ function RegisterContent() {
             )}
           </div>
 
+          <hr style={{ margin: '10px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />
+
           <div className="form-group">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <label htmlFor="sportId" className="whistler-text" style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>
+                Sport <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <Tooltip 
+                title="Select just one sport to start, you can add more later" 
+                placement="top"
+                arrow
+              >
+                <InfoOutlinedIcon 
+                  sx={{ 
+                    fontSize: 18, 
+                    color: '#667eea', 
+                    cursor: 'help',
+                    '&:hover': { color: '#5a67d8' }
+                  }} 
+                />
+              </Tooltip>
+            </div>
             <StyledSelect
-              label="Sport *"
+              label=""
               id="sportId"
               name="sportId"
               value={formData.sportId}
@@ -270,10 +326,30 @@ function RegisterContent() {
             />
           </div>
 
+        <div className="form-group">
+<div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <label htmlFor="leagueId" className="whistler-text" style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>
+                League <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <Tooltip 
+                title="Select just one league to start, you can add more later" 
+                placement="top"
+                arrow
+              >
+                <InfoOutlinedIcon 
+                  sx={{ 
+                    fontSize: 18, 
+                    color: '#667eea', 
+                    cursor: 'help',
+                    '&:hover': { color: '#5a67d8' }
+                  }} 
+                />
+              </Tooltip>
+            </div>
           {formData.sportId && (
             <div className="form-group">
               <StyledSelect
-                label="League *"
+                label=""
                 id="leagueId"
                 name="leagueId"
                 value={formData.leagueId}
@@ -290,30 +366,65 @@ function RegisterContent() {
               />
             </div>
           )}
-
+          </div>
           {formData.leagueId && (
             <div className="form-group">
               <StyledSelect
-                label="Role *"
-                id="roleId"
-                name="roleId"
-                value={formData.roleId}
+                label={<span>Role(s) <span style={{ color: '#ef4444' }}>*</span></span>}
+                id="roleIds"
+                name="roleIds"
+                value={formData.roleIds}
                 onChange={handleChange}
                 required
                 disabled={isLoading}
-                error={!!errors.roleId}
-                helperText={errors.roleId}
+                error={!!errors.roleIds}
+                helperText={errors.roleIds}
                 options={roles.map(role => ({
                   value: role.roleId,
                   label: role.roleName
                 }))}
-                placeholder="Select a role..."
+                placeholder="Select role(s)..."
+                multiple={true}
               />
             </div>
           )}
+           <hr style={{ margin: '10px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />
+          {formData.roleIds.length > 0 && (
+            <>
+   
+              {formData.roleIds.map((roleId) => {
+                const role = roles.find(r => r.roleId === roleId);
+                if (!role) return null;
+                return (
+                  <div key={roleId} className="form-group">
+                    <StyledSelect
+                      label={<span>Organizations for {role.roleName} <span style={{ color: '#ef4444' }}>*</span></span>}
+                      id={`role-org-${roleId}`}
+                      name={`role-org-${roleId}`}
+                      value={formData.roleOrganizations[roleId] || []}
+                      onChange={(e) => handleRoleOrganizationChange(roleId, e.target.value)}
+                      disabled={isLoading}
+                      options={organizations.map(org => ({
+                        value: org.organizationId,
+                        label: org.organizationName
+                      }))}
+                      placeholder="Select organizations..."
+                      multiple={true}
+                    />
+                  </div>
+                );
+              })}
+              {errors.organizations && (
+                <div className="alert alert-error" style={{ marginTop: '10px' }}>
+                  {errors.organizations}
+                </div>
+              )}
+              <hr style={{ margin: '10px 0', border: 'none', borderTop: '1px solid #e2e8f0' }} />
+            </>
+          )}
 
           <div className="form-group">
-            <label htmlFor="password" className="whistler-text">Password *</label>
+            <label htmlFor="password" className="whistler-text">Password <span style={{ color: '#ef4444' }}>*</span></label>
             <input
               type="password"
               id="password"
@@ -332,7 +443,7 @@ function RegisterContent() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="confirmPassword" className="whistler-text">Confirm Password *</label>
+            <label htmlFor="confirmPassword" className="whistler-text">Confirm Password <span style={{ color: '#ef4444' }}>*</span></label>
             <input
               type="password"
               id="confirmPassword"

@@ -58,7 +58,7 @@
 }
 
 .form-group input {
-  padding: 14px 20px;
+  padding: 11px 15px;
   border: 2px solid #e2e8f0;
   border-radius: 8px;
   font-size: 15px;
@@ -131,7 +131,7 @@
 }
 
 .alert {
-  padding: 14px 16px;
+  padding: 11px 12px;
   border-radius: 8px;
   margin-bottom: 20px;
   font-size: 14px;
@@ -148,7 +148,7 @@
   background: #3D9031;
   color: white;
   border: none;
-  padding: 14px 24px;
+  padding: 11px 18px;
   border-radius: 8px;
   font-size: 16px;
   font-weight: 600;
