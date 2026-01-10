@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Menu as MenuIcon, ChevronLeft } from '@mui/icons-material';
+import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import whistlersIcon from '../../assets/images/WHISTLERS_ICON_dark.png';
+import whistlersDarkLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
 import './OneColumnWithNavLayout.css';
 
 function OneColumnWithNavLayout({ children, navItems = [] }) {
@@ -15,13 +17,11 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
       {/* Collapsible Navigation Bar */}
       <nav className={`nav-sidebar ${isExpanded ? 'expanded' : 'collapsed'}`}>
         <div className="nav-header">
-          <button 
-            className="nav-toggle-btn" 
-            onClick={toggleNav}
-            aria-label={isExpanded ? 'Collapse navigation' : 'Expand navigation'}
-          >
-            {isExpanded ? <ChevronLeft /> : <MenuIcon />}
-          </button>
+          {isExpanded ? (
+            <img src={whistlersDarkLogo} alt="Whistlers" className="nav-logo-full" />
+          ) : (
+            <img src={whistlersIcon} alt="Whistlers" className="nav-logo" />
+          )}
         </div>
         
         <ul className="nav-list">
@@ -38,6 +38,26 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
             </li>
           ))}
         </ul>
+
+        {/* Toggle Button at Bottom */}
+        <div className="nav-footer">
+          <button 
+            className={isExpanded ? "nav-collapse-btn" : "nav-expand-btn"}
+            onClick={toggleNav}
+            aria-label={isExpanded ? 'Collapse navigation' : 'Expand navigation'}
+          >
+            {isExpanded ? (
+              <>
+                <span className="nav-btn-text">Collapse</span>
+              </>
+            ) : (
+              <>
+                <span className="nav-btn-text"><ChevronRight />
+                </span>
+              </>
+            )}
+          </button>
+        </div>
       </nav>
 
       {/* Main Content Area */}

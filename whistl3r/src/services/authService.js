@@ -96,9 +96,9 @@ class AuthService {
       errors.leagueId = 'Please select a league';
     }
 
-    // Role validation
-    if (!data.roleId || data.roleId === '' || parseInt(data.roleId) <= 0) {
-      errors.roleId = 'Please select a role';
+    // Role validation (now supports roleIds array)
+    if (!data.roleIds || !Array.isArray(data.roleIds) || data.roleIds.length === 0) {
+      errors.roleIds = 'Please select at least one role';
     }
 
     return {
@@ -112,6 +112,7 @@ class AuthService {
    */
   async registerUser(userData) {
     try {
+      console.log('Starting user registration process');
       // Ensure we have the encryption key
       if (!this.publicKey) {
         await this.fetchEncryptionKey();
@@ -135,8 +136,10 @@ class AuthService {
         firstName: userData.firstName.trim(),
         lastName: userData.lastName.trim(),
         phone: userData.phone?.trim() || null,
+        sportId: parseInt(userData.sportId),
         leagueId: parseInt(userData.leagueId),
-        roleId: parseInt(userData.roleId),
+        roleIds: userData.roleIds.map(id => parseInt(id)),
+        roleOrganizations: userData.roleOrganizations,
         encryptedPassword: encryptedPassword,
       };
 
@@ -176,6 +179,141 @@ class AuthService {
    */
   async register(userData) {
     return await this.registerUser(userData);
+  }
+
+  /**
+   * Login user with email and password
+   */
+  async login(credentials) {
+    try {
+      // Ensure we have the encryption key
+      if (!this.publicKey) {
+        await this.fetchEncryptionKey();
+      }
+
+      // Validate credentials
+      if (!credentials.email || !credentials.password) {
+        return {
+          success: false,
+          errors: { general: 'Email and password are required' },
+        };
+      }
+
+      // Encrypt password
+      const encryptedPassword = this.encryptPassword(credentials.password);
+
+      // Send login request
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: credentials.email.trim(),
+          encryptedPassword: encryptedPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          errors: { general: data.message || 'Login failed' },
+        };
+      }
+
+      // Store tokens and user data
+      if (data.accessToken) {
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        
+        // Decode JWT to extract user info and roles
+        const userInfo = this.parseJwtToken(data.accessToken);
+        localStorage.setItem('user', JSON.stringify(userInfo));
+        localStorage.setItem('roles', JSON.stringify(userInfo.roles || []));
+      }
+
+      return {
+        success: true,
+        user: data.user,
+        roles: data.roles,
+      };
+    } catch (error) {
+      console.error('Login error:', error);
+      return {
+        success: false,
+        errors: { general: error.message || 'An unexpected error occurred' },
+      };
+    }
+  }
+
+  /**
+   * Parse JWT token to extract payload
+   */
+  parseJwtToken(token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error('Error parsing JWT token:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Get current user from localStorage
+   */
+  getCurrentUser() {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  }
+
+  /**
+   * Get current user roles from localStorage
+   */
+  getUserRoles() {
+    const rolesStr = localStorage.getItem('roles');
+    return rolesStr ? JSON.parse(rolesStr) : [];
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated() {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return false;
+
+    // Check if token is expired
+    const tokenData = this.parseJwtToken(token);
+    if (!tokenData.exp) return false;
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    return tokenData.exp > currentTime;
+  }
+
+  /**
+   * Logout user
+   */
+  logout() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('roles');
+  }
+
+  /**
+   * Get access token for API requests
+   */
+  getAccessToken() {
+    return localStorage.getItem('accessToken');
   }
 }
 

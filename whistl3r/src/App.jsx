@@ -6,6 +6,9 @@ import Register from './components/registration/Register';
 import Login from './components/login/Login';
 import ForgotPassword from './components/login/ForgotPassword';
 import ResetPassword from './components/login/ResetPassword';
+import Dashboard from './components/dashboard/Dashboard';
+import OpenGames from './components/games/OpenGames';
+import DashboardSummary from './components/dashboard/DashboardSummary';
 import './App.css';
 
 function App() {
@@ -20,6 +23,10 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/dashboard" element={<Dashboard />}>
+              <Route index element={<DashboardSummary />} />
+              <Route path="games" element={<OpenGames />} />
+            </Route>
           </Routes>
         </div>
       </Router>

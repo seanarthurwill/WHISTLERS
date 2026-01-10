@@ -16,7 +16,7 @@ Write-Host ""
 Write-Host "To attach debugger to all services:" -ForegroundColor Cyan
 Write-Host "  1. Press F5 in VS Code" -ForegroundColor White
 Write-Host "  2. Select '.NET Core Attach'" -ForegroundColor White
-Write-Host "  3. Attach to each service process you want to debug" -ForegroundColor White
+Write-Host "  3. Attach to each service process you want to debug" -ForegroundColor Green
 Write-Host "  4. Set breakpoints and debug across services" -ForegroundColor White
 Write-Host ""
 Write-Host "Service URLs:" -ForegroundColor Cyan

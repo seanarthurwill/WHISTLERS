@@ -5,15 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local": "vite --mode development",
+    "dev:aws": "vite --mode production",
     "build": "vite build",
+    "build:local": "vite build --mode development",
+    "build:aws": "vite build --mode production",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:local": "vite preview --mode development",
+    "preview:aws": "vite preview --mode production"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
+    "@mui/x-data-grid": "^8.23.0",
     "jsencrypt": "^3.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

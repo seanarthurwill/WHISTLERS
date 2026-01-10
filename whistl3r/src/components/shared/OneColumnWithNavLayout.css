@@ -10,7 +10,7 @@
   left: 0;
   top: 0;
   height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #0B0D0C;
   transition: width 0.3s ease;
   z-index: 1000;
   display: flex;
@@ -32,10 +32,51 @@
   padding: 20px;
   display: flex;
   align-items: center;
+  justify-content: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.nav-toggle-btn {
+.nav-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.nav-logo-full {
+  height: 87.5px;
+  object-fit: contain;
+}
+
+/* Navigation Footer */
+.nav-footer {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-collapse-btn {
+  background: #4925B1;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s ease;
+  outline: none !important;
+}
+
+.nav-btn-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-expand-btn {
   background: transparent;
   border: none;
   color: #ffffff;
@@ -46,14 +87,12 @@
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s ease;
+  outline: none !important;
 }
 
-.nav-toggle-btn:hover {
+.nav-collapse-btn:hover,
+.nav-expand-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
-}
-
-.nav-toggle-btn svg {
-  font-size: 24px;
 }
 
 /* Navigation List */

@@ -145,19 +145,22 @@ function RegisterContent() {
     setErrors({});
     setSuccessMessage('');
 
-    // Validate that at least one organization is selected
-    const hasOrganizations = Object.values(formData.roleOrganizations).some(
-      orgIds => Array.isArray(orgIds) && orgIds.length > 0
-    );
+    // Validate that at least one organization is selected if roles are selected
+    if (formData.roleIds.length > 0) {
+      const hasOrganizations = Object.values(formData.roleOrganizations).some(
+        orgIds => Array.isArray(orgIds) && orgIds.length > 0
+      );
 
-    if (!hasOrganizations) {
-      setErrors({ 
-        organizations: 'Please select at least one organization for your role(s)' 
-      });
-      return;
+      if (!hasOrganizations) {
+        setErrors({ 
+          organizations: 'Please select at least one organization for your role(s)' 
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
+    showLoading();
 
     try {
       const result = await authService.register(formData);
@@ -186,6 +189,7 @@ function RegisterContent() {
       setErrors({ general: 'An unexpected error occurred. Please try again.' });
     } finally {
       setIsLoading(false);
+      hideLoading();
     }
   };
 
