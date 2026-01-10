@@ -40,9 +40,11 @@ builder.Services.AddReverseProxy()
 
 var app = builder.Build();
 
+// CORS must be before authentication/authorization
 app.UseCors("AllowReactApp");
-app.UseAuthentication();
-app.UseAuthorization();
+// Temporarily disabled for local testing without JWT
+// app.UseAuthentication();
+// app.UseAuthorization();
 app.MapReverseProxy();
 
 app.Run();

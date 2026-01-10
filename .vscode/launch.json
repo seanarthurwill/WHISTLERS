@@ -2,6 +2,20 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Games Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-games",
+      "program": "${workspaceFolder}/services/Games/bin/Debug/net8.0/Games.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/services/Games",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5004"
+      }
+    },
+    {
       "name": "Users Service",
       "type": "coreclr",
       "request": "launch",

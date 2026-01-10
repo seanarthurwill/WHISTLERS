@@ -41,6 +41,7 @@ namespace UsersService.Services
         public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
             return await _context.Users
+                .Include(u => u.UserRoles)
                 .OrderBy(u => u.Email)
                 .ToListAsync();
         }
@@ -48,12 +49,14 @@ namespace UsersService.Services
         public async Task<User?> GetUserByIdAsync(int id)
         {
             return await _context.Users
+                .Include(u => u.UserRoles)
                 .FirstOrDefaultAsync(u => u.UserId == id);
         }
 
         public async Task<User?> GetUserByEmailAsync(string email)
         {
             return await _context.Users
+                .Include(u => u.UserRoles)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
@@ -84,7 +87,7 @@ namespace UsersService.Services
             existing.FirstName = user.FirstName;
             existing.LastName = user.LastName;
             existing.Phone = user.Phone;
-            existing.RoleId = user.RoleId;
+            existing.UserRoles = user.UserRoles;
             existing.TenantId = user.TenantId;
             existing.DateOfBirth = user.DateOfBirth;
             existing.UserType = user.UserType;

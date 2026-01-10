@@ -1,4 +1,4 @@
-using UsersService.Models;
+﻿using UsersService.Models;
 
 namespace UsersService.Services
 {
@@ -14,10 +14,8 @@ namespace UsersService.Services
         public string FirstName { get; set; } = null!;
         public string LastName { get; set; } = null!;
         public string? Phone { get; set; }
-        public int SportId { get; set; }
         public int LeagueId { get; set; }
-        public List<int> RoleIds { get; set; } = new List<int>();
-        public Dictionary<int, List<int>>? RoleOrganizations { get; set; }
+        public int RoleId { get; set; }
         public string EncryptedPassword { get; set; } = null!;
     }
 
@@ -97,12 +95,19 @@ namespace UsersService.Services
                 errors["password"] = "Password is required";
             }
 
-            // Validate roles
-            if (request.RoleIds == null || request.RoleIds.Count == 0)
+            // Validate role
+            if (request.RoleId <= 0)
             {
                 errors["roleId"] = "Role is required";
             }
-            
+            else
+            {
+                var role = await _roleService.GetRoleByIdAsync(request.RoleId);
+                if (role == null)
+                {
+                    errors["roleId"] = "Invalid role selected";
+                }
+            }
 
             if (errors.Count > 0)
             {
@@ -167,7 +172,7 @@ namespace UsersService.Services
                     FirstName = request.FirstName,
                     LastName = request.LastName,
                     Phone = request.Phone ?? "",
-                    UserRoles = request.RoleIds.Select(roleId => new UserRole { RoleId = roleId }).ToList(),
+                    RoleId = request.RoleId,
                     PasswordHash = decryptedPassword, // In production, hash this with bcrypt
                     IsActive = false, // New registrations are inactive until verified
                     CreatedAt = DateTime.UtcNow
@@ -219,3 +224,4 @@ namespace UsersService.Services
         }
     }
 }
+

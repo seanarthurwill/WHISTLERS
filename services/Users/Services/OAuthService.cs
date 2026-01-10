@@ -87,13 +87,20 @@ namespace UsersService.Services
                     };
                 }
 
-                // Get roles and certifications
-                Role? role = null;
-                if (user.RoleId.HasValue)
+                // Get roles from UserRoles junction table
+                var userWithRoles = await _userService.GetUserByIdAsync(user.UserId);
+                var roles = new List<Role>();
+                if (userWithRoles?.UserRoles != null)
                 {
-                    role = await _roleService.GetRoleByIdAsync(user.RoleId.Value);
+                    foreach (var userRole in userWithRoles.UserRoles)
+                    {
+                        var role = await _roleService.GetRoleByIdAsync(userRole.RoleId);
+                        if (role != null)
+                        {
+                            roles.Add(role);
+                        }
+                    }
                 }
-                var roles = role != null ? new List<Role> { role } : new List<Role>();
 
                 // Generate tokens
                 var accessToken = _jwtService.GenerateAccessToken(user, roles);

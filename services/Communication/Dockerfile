@@ -1,18 +1,13 @@
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
-WORKDIR /app
-EXPOSE 80
-
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["Communication.csproj", "./"]
-RUN dotnet restore "Communication.csproj"
-COPY . .
-RUN dotnet build "Communication.csproj" -c Release -o /app/build
 
-FROM build AS publish
+COPY *.csproj ./
+RUN dotnet restore "Communication.csproj"
+
+COPY . .
 RUN dotnet publish "Communication.csproj" -c Release -o /app/publish
 
-FROM base AS final
-WORKDIR /app
-COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Communication.dll"]
+FROM public.ecr.aws/lambda/dotnet:8 AS runtime
+WORKDIR /var/task
+COPY --from=build /app/publish .
+CMD ["Communication::Amazon.Lambda.AspNetCoreServer.Hosting.APIGatewayHttpApiV2Handler::FunctionHandlerAsync"]

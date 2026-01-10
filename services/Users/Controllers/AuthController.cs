@@ -72,7 +72,7 @@ namespace UsersService.Controllers
                 string.IsNullOrWhiteSpace(request.FirstName) || 
                 string.IsNullOrWhiteSpace(request.LastName) ||
                 string.IsNullOrWhiteSpace(request.EncryptedPassword) ||
-                request.RoleId <= 0)
+                request.RoleIds == null || request.RoleIds.Count == 0)
             {
                 return BadRequest(new { message = "Email, first name, last name, password, and role are required" });
             }
@@ -129,14 +129,37 @@ namespace UsersService.Controllers
                 return BadRequest(ModelState);
             }
 
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            if (string.IsNullOrWhiteSpace(request.Email))
             {
-                return BadRequest(new { message = "Email and password are required" });
+                return BadRequest(new { message = "Email is required" });
+            }
+
+            // Decrypt password if encrypted password was provided
+            string plainPassword;
+            if (!string.IsNullOrWhiteSpace(request.EncryptedPassword))
+            {
+                try
+                {
+                    plainPassword = _encryptionService.DecryptPassword(request.EncryptedPassword);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Password decryption failed for {request.Email}: {ex.Message}");
+                    return BadRequest(new { message = "Invalid password format" });
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(request.Password))
+            {
+                plainPassword = request.Password;
+            }
+            else
+            {
+                return BadRequest(new { message = "Password is required" });
             }
 
             try
             {
-                var result = await _authenticationService.LoginAsync(request.Email, request.Password);
+                var result = await _authenticationService.LoginAsync(request.Email, plainPassword);
 
                 if (!result.Success)
                 {
@@ -381,7 +404,8 @@ namespace UsersService.Controllers
     public class LoginRequest
     {
         public string Email { get; set; } = null!;
-        public string Password { get; set; } = null!;
+        public string? Password { get; set; }
+        public string? EncryptedPassword { get; set; }
     }
 
     public class RefreshTokenRequest

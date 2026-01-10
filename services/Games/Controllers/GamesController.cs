@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using GamesService.Models;
 using GamesService.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GamesService.Controllers
 {

@@ -144,27 +144,27 @@ namespace GamesService.Services
         {
             var sql = @"
                 SELECT 
-                    g.game_id,
-                    s.sport_name,
-                    l.league_name,
-                    al.age_level_name,
-                    g.game_date,
-                    g.game_time,
-                    v.venue_name,
-                    g.home_team AS home_club,
-                    g.away_team AS away_club,
-                    gs.game_status_name,
-                    p.position_name,
-                    alp.is_required AS position_required,
-                    alp.min_required,
-                    alp.max_allowed,
+                    g.game_id AS GameId,
+                    s.sport_name AS SportName,
+                    l.league_name AS LeagueName,
+                    al.age_level_name AS AgeLevelName,
+                    g.game_date AS GameDate,
+                    g.game_time AS GameTime,
+                    v.venue_name AS VenueName,
+                    g.home_team AS HomeClub,
+                    g.away_team AS AwayClub,
+                    gs.game_status_name AS GameStatusName,
+                    p.position_name AS PositionName,
+                    alp.is_required AS PositionRequired,
+                    alp.min_required AS MinRequired,
+                    alp.max_allowed AS MaxAllowed,
                     CASE 
                         WHEN ga.assignment_status IS NOT NULL THEN ga.assignment_status
                         WHEN alp.is_required = true THEN 'Open'
                         ELSE 'Not Required'
-                    END AS position_status,
-                    CONCAT(u.first_name, ' ', u.last_name) AS assigned_official,
-                    STRING_AGG(gn.note_text, '; ' ORDER BY gn.created_at) AS game_notes
+                    END AS PositionStatus,
+                    CONCAT(u.first_name, ' ', u.last_name) AS AssignedOfficial,
+                    STRING_AGG(gn.note_text, '; ' ORDER BY gn.created_at) AS GameNotes
                 FROM games g
                 LEFT JOIN sports s ON g.organization_id = (SELECT organization_id FROM organizations WHERE organization_id = g.organization_id LIMIT 1)
                     AND s.sport_id = (SELECT sport_id FROM leagues WHERE league_id = g.league_id)
