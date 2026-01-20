@@ -1,86 +1,141 @@
-version: '3.8'
-
 services:
-  mssql:
-    image: mcr.microsoft.com/mssql/server:2019-latest
+  # PostgreSQL Database (for local development only)
+  postgres:
+    image: postgres:15
+    container_name: whistl3r-postgres
     environment:
-      ACCEPT_EULA: "Y"
-      SA_PASSWORD: "P@ssw0rd123!"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 0pt1m0sPr1m3.
+      POSTGRES_DB: whistl3r
     ports:
-      - "1433:1433"
-    healthcheck:
-      test: ["CMD-SHELL", "echo 'select 1' | /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $${SA_PASSWORD} -b"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
+      - "5432:5432"
     volumes:
-      - mssql-data:/var/opt/mssql
+      - postgres-data:/var/lib/postgresql/data
     networks:
-      - whistl3r-net
+      - whistl3r-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  organizations:
-    build: ./services/Organizations
+  # API Gateway (LOCAL ONLY - Not used in AWS)
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.apigateway
+    container_name: whistl3r-api-gateway
     ports:
-      - "5001:80"
+      - "5000:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
     depends_on:
-      mssql:
+      - users-service
+      - games-service
+      - organizations-service
+      - assignors-service
+      - communication-service
+    networks:
+      - whistl3r-network
+
+  # Users Service
+  users-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.users
+    container_name: whistl3r-users
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=whistl3r;Username=postgres;Password=0pt1m0sPr1m3.
+      - Jwt__SecretKey=your-super-secret-key-change-this-in-production
+      - Jwt__ExpirationMinutes=60
+      - Jwt__Issuer=Whistl3r
+      - Jwt__Audience=Whistl3rAPI
+    depends_on:
+      postgres:
         condition: service_healthy
     networks:
-      - whistl3r-net
+      - whistl3r-network
 
-  payscale:
-    build: ./services/PayScale
+  # Games Service
+  games-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.games
+    container_name: whistl3r-games
     ports:
-      - "5002:80"
+      - "5004:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=whistl3r;Username=postgres;Password=0pt1m0sPr1m3.
     depends_on:
-      mssql:
+      postgres:
         condition: service_healthy
     networks:
-      - whistl3r-net
+      - whistl3r-network
 
-  reviews:
-    build: ./services/Reviews
+  # Organizations Service
+  organizations-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.organizations
+    container_name: whistl3r-organizations
     ports:
-      - "5003:80"
+      - "5003:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=whistl3r;Username=postgres;Password=0pt1m0sPr1m3.
     depends_on:
-      mssql:
+      postgres:
         condition: service_healthy
     networks:
-      - whistl3r-net
+      - whistl3r-network
 
-  groups:
-    build: ./services/Groups
+  # Assignors Service
+  assignors-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.assignors
+    container_name: whistl3r-assignors
     ports:
-      - "5004:80"
+      - "5002:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=whistl3r;Username=postgres;Password=0pt1m0sPr1m3.
     depends_on:
-      mssql:
+      postgres:
         condition: service_healthy
     networks:
-      - whistl3r-net
+      - whistl3r-network
 
-  admin:
-    build: ./services/Admin
+  # Communication Service
+  communication-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.communication
+    container_name: whistl3r-communication
     ports:
-      - "5005:80"
+      - "5007:8080"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=mssql,1433;Database=Whistl3rDev;User Id=sa;Password=P@ssw0rd123!
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=whistl3r;Username=postgres;Password=0pt1m0sPr1m3.
     depends_on:
-      mssql:
+      postgres:
         condition: service_healthy
     networks:
-      - whistl3r-net
-
-volumes:
-  mssql-data:
+      - whistl3r-network
 
 networks:
-  whistl3r-net:
+  whistl3r-network:
     driver: bridge
+
+volumes:
+  postgres-data:

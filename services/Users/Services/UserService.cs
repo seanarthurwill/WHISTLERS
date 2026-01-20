@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using UsersService.Data;
 using UsersService.Models;
+using Microsoft.Data.SqlClient;
+
 
 namespace UsersService.Services
 {
@@ -25,6 +27,7 @@ namespace UsersService.Services
         Task<Role> CreateRoleAsync(Role role);
         Task<Role?> UpdateRoleAsync(int id, Role role);
         Task<bool> DeleteRoleAsync(int id);
+        Task<List<Permission>?> GetPermissionByIdAsync(int id); 
     }
 
     // ===== IMPLEMENTATIONS =====
@@ -140,6 +143,23 @@ namespace UsersService.Services
         {
             return await _context.Roles.FindAsync(id);
         }
+
+         public async Task<List<Permission>?> GetPermissionByIdAsync(int id)
+{
+    var sql = @"
+        select p.* 
+        from role_permissions rp
+        left join permissions p on rp.permission_id = p.permission_id
+        where rp.role_id = {0}";
+
+    var result = await _context.Database
+        .SqlQueryRaw<Permission>(sql, id)
+        .ToListAsync();
+
+    return result;
+}
+
+
 
         public async Task<Role?> GetRoleByNameAsync(string name)
         {

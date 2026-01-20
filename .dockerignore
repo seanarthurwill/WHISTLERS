@@ -1,15 +1,38 @@
-node_modules/
-whistl3r/node_modules/
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# Node modules
 **/node_modules/
+**/dist/
+
+# Environment files
+**/.env
+**/.env.local
+
+# Git
 .git/
+.gitignore
+
+# VS Code
 .vscode/
-*.md
-*.log
-*.txt
-bin/
-obj/
-.vs/
-test-*.json
-response*.json
-*.ps1
-.dockerignore
+**/.vs/
+
+# Docker
+**/*.Dockerfile
+**/docker-compose*
+
+# Logs
+**/*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test results
+**/TestResults/
+
+# User-specific files
+**/*.user
+**/*.suo

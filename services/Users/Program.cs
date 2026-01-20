@@ -5,6 +5,8 @@ using Amazon.Lambda.AspNetCoreServer.Hosting; // ADD THIS
 using UsersService.Data;
 using UsersService.Services;
 using Microsoft.EntityFrameworkCore;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.DataModel;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -44,6 +46,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.EnableSensitiveDataLogging();
         options.EnableDetailedErrors();
     }
+});
+
+builder.Services.AddAWSService<IAmazonDynamoDB>();
+builder.Services.AddScoped<IDynamoDBContext>(sp =>
+{
+    var client = sp.GetRequiredService<IAmazonDynamoDB>();
+    return new DynamoDBContext(client);
 });
 
 // Add Authentication & Encryption Services

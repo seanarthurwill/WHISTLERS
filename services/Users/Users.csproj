@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.22" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
@@ -23,8 +24,8 @@
    <PackageReference Include="Amazon.Lambda.AspNetCoreServer.Hosting" Version="1.6.0" />
   <PackageReference Include="Amazon.Lambda.Core" Version="2.2.0" />
   <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="2.4.0" />
-  <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.300" />
-  <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.7" />
+  <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.10.7" />
+  <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.3.19" />
   </ItemGroup>
 
 

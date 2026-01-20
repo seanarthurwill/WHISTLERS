@@ -1,0 +1,126 @@
+@import url('https://fonts.cdnfonts.com/css/lil-grotesk');
+
+.open-games-container {
+  height: calc(100vh - 100px);
+  width: 100%;
+  padding: 24px;
+  background-color: #505452 !important;
+  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.open-games-header {
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: #505452 !important;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.sport-filter {
+  margin-left: auto;
+}
+.open-games-title-pill {
+  background-color: #3F9033;
+  border-radius: 24px;
+  padding: 8px 20px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.open-games-title {
+  color: #ffffff;
+  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 1.05rem !important;
+  font-weight: bold !important;
+  margin: 0 !important;
+}
+.open-games-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.open-games-error {
+  padding: 16px;
+  margin-bottom: 16px;
+  background-color: #ff4444;
+  color: #fff;
+}
+
+.open-games-grid-container {
+  height: calc(100% - 120px);
+  width: calc(100% - 48px);
+  margin: 0 24px;
+  background-color: #505452 !important;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  overflow: hidden;
+}
+
+.open-games-datagrid {
+  border: none;
+  background-color: #fff;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.open-games-datagrid .MuiDataGrid-cell {
+  color: #000;
+  border-color: rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.open-games-datagrid .MuiDataGrid-cell:focus,
+.open-games-datagrid .MuiDataGrid-cell:focus-within {
+  outline: none !important;
+}
+
+.open-games-datagrid .MuiDataGrid-row {
+  background-color: #fff;
+}
+
+.open-games-datagrid .MuiDataGrid-columnHeaders {
+  color: #000;
+  border-color: rgba(0, 0, 0, 0.2);
+  background-color: #409032 !important;
+}
+
+.open-games-datagrid .MuiDataGrid-columnHeader {
+  color: #000;
+}
+
+.open-games-datagrid .MuiDataGrid-columnHeaderTitle {
+  font-weight: bold;
+  color: #000;
+  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.open-games-datagrid .MuiDataGrid-row:hover {
+  background-color: rgba(102, 126, 234, 0.1);
+}
+
+.open-games-datagrid .MuiDataGrid-footerContainer {
+  background-color: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #000;
+}
+
+.open-games-datagrid .MuiTablePagination-root {
+  color: #000;
+}
+
+.open-games-datagrid .MuiIconButton-root {
+  color: #000;
+}
+
+.open-games-datagrid .status-open {
+  color: #16a34a;
+  font-weight: bold;
+}
+
+.open-games-datagrid .status-assigned {
+  color: #2563eb;
+  font-weight: bold;
+}

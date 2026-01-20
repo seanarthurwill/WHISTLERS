@@ -93,4 +93,21 @@ namespace UsersService.Models
         public User User { get; set; } = null!;
         public Role Role { get; set; } = null!;
     }
+
+    [Table("permission")]
+    public class Permission
+    {
+        [Column("permission_id")]
+        public int PermissionId { get; set; }
+
+        [Column("permission_name")]
+        public string PermissionName { get; set; }
+
+        [Column("description")]
+        public string Description { get; set; }
+
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
+
+    }
 }

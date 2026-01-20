@@ -73,7 +73,7 @@ function LoginContent() {
       </div>
       <h2 className="whistler-text-heading" style={{ textAlign: 'center' }}>Login</h2>
         <p className="login-subtitle whistler-text-subheading" style={{ textAlign: 'center' }}>
-          <a href="/register" className="whistler-text-subheading">New Users Register</a>
+          <a href="/register" className="whistler-text-subheading">New Users Registeration</a>
         </p>
 
         {errors.general && (

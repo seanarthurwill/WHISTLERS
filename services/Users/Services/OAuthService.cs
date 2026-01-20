@@ -90,6 +90,7 @@ namespace UsersService.Services
                 // Get roles from UserRoles junction table
                 var userWithRoles = await _userService.GetUserByIdAsync(user.UserId);
                 var roles = new List<Role>();
+                var permissions = new List<Permission>();
                 if (userWithRoles?.UserRoles != null)
                 {
                     foreach (var userRole in userWithRoles.UserRoles)
@@ -98,12 +99,17 @@ namespace UsersService.Services
                         if (role != null)
                         {
                             roles.Add(role);
+                            var rolePermissions = await _roleService.GetPermissionByIdAsync(role.RoleId);
+                            if (rolePermissions != null)
+                            {
+                                permissions.AddRange(rolePermissions);
+                            }
                         }
                     }
                 }
 
                 // Generate tokens
-                var accessToken = _jwtService.GenerateAccessToken(user, roles);
+                var accessToken = _jwtService.GenerateAccessToken(user, permissions);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
                 // Update last login

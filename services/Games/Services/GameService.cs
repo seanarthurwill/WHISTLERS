@@ -144,59 +144,48 @@ namespace GamesService.Services
         {
             var sql = @"
                 SELECT 
-                    g.game_id AS GameId,
-                    s.sport_name AS SportName,
-                    l.league_name AS LeagueName,
-                    al.age_level_name AS AgeLevelName,
-                    g.game_date AS GameDate,
-                    g.game_time AS GameTime,
-                    v.venue_name AS VenueName,
-                    g.home_team AS HomeClub,
-                    g.away_team AS AwayClub,
-                    gs.game_status_name AS GameStatusName,
-                    p.position_name AS PositionName,
-                    alp.is_required AS PositionRequired,
-                    alp.min_required AS MinRequired,
-                    alp.max_allowed AS MaxAllowed,
-                    CASE 
-                        WHEN ga.assignment_status IS NOT NULL THEN ga.assignment_status
-                        WHEN alp.is_required = true THEN 'Open'
-                        ELSE 'Not Required'
-                    END AS PositionStatus,
-                    CONCAT(u.first_name, ' ', u.last_name) AS AssignedOfficial,
-                    STRING_AGG(gn.note_text, '; ' ORDER BY gn.created_at) AS GameNotes
-                FROM games g
-                LEFT JOIN sports s ON g.organization_id = (SELECT organization_id FROM organizations WHERE organization_id = g.organization_id LIMIT 1)
-                    AND s.sport_id = (SELECT sport_id FROM leagues WHERE league_id = g.league_id)
-                LEFT JOIN leagues l ON g.league_id = l.league_id
-                LEFT JOIN age_levels al ON g.age_level_id = al.age_level_id
-                LEFT JOIN venues v ON g.venue_id = v.venue_id
-                LEFT JOIN game_status gs ON g.game_status_id = gs.game_status_id
-                LEFT JOIN age_level_positions alp ON al.age_level_id = alp.age_level_id AND alp.is_active = true
-                LEFT JOIN positions p ON alp.position_id = p.position_id
-                LEFT JOIN game_assignments ga ON g.game_id = ga.game_id AND ga.position_id = p.position_id
-                LEFT JOIN officials o ON ga.official_id = o.official_id
-                LEFT JOIN users u ON o.user_id = u.user_id
-                LEFT JOIN game_notes gn ON g.game_id = gn.game_id
-                GROUP BY 
-                    g.game_id,
-                    s.sport_name,
-                    l.league_name,
-                    al.age_level_name,
-                    g.game_date,
-                    g.game_time,
-                    v.venue_name,
-                    g.home_team,
-                    g.away_team,
-                    gs.game_status_name,
-                    p.position_name,
-                    alp.is_required,
-                    alp.min_required,
-                    alp.max_allowed,
-                    ga.assignment_status,
-                    u.first_name,
-                    u.last_name
-                ORDER BY g.game_date, g.game_time, g.game_id";
+    g.game_id AS ""GameId"",
+    s.sport_name AS ""SportName"",
+    l.league_name AS ""LeagueName"",
+    al.age_level_name AS ""AgeLevelName"",
+    g.game_date AS ""GameDate"",
+    g.game_time AS ""GameTime"",
+    v.venue_name AS ""VenueName"",
+    g.home_team AS ""HomeClub"",
+    g.away_team AS ""AwayClub"",
+    gs.game_status_name AS ""GameStatusName"",
+    STRING_AGG(
+        CASE 
+            WHEN ga.game_assignment_id IS NULL AND alp.is_required = true 
+            THEN p.position_name 
+        END, 
+        ', ' 
+        ORDER BY alp.display_order
+    ) AS ""OpenPositions"",
+    STRING_AGG(gn.note_text, '; ' ORDER BY gn.created_at) AS ""GameNotes""
+FROM games g
+LEFT JOIN leagues l ON g.league_id = l.league_id
+LEFT JOIN sports s ON l.sport_id = s.sport_id
+LEFT JOIN age_levels al ON g.age_level_id = al.age_level_id
+LEFT JOIN venues v ON g.venue_id = v.venue_id
+LEFT JOIN game_status gs ON g.game_status_id = gs.game_status_id
+LEFT JOIN age_level_positions alp ON al.age_level_id = alp.age_level_id AND alp.is_active = true
+LEFT JOIN positions p ON alp.position_id = p.position_id
+LEFT JOIN game_assignments ga ON g.game_id = ga.game_id 
+    AND ga.position_id = p.position_id 
+LEFT JOIN game_notes gn ON g.game_id = gn.game_id
+GROUP BY 
+    g.game_id,
+    s.sport_name,
+    l.league_name,
+    al.age_level_name,
+    g.game_date,
+    g.game_time,
+    v.venue_name,
+    g.home_team,
+    g.away_team,
+    gs.game_status_name
+ORDER BY g.game_date, g.game_time, g.game_id;";
 
             var result = await _context.Database
                 .SqlQueryRaw<GameDetailsReport>(sql)

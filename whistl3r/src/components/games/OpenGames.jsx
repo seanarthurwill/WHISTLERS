@@ -1,39 +1,118 @@
 import { useState, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography, Paper, Button, Select, MenuItem, FormControl } from '@mui/material';
 import { useLoading } from '../../contexts/LoadingContext';
+import ClaimGame from './ClaimGame';
+import './OpenGames.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 function OpenGames() {
   const { showLoading, hideLoading } = useLoading();
   const [games, setGames] = useState([]);
+  const [allGames, setAllGames] = useState([]);
+  const [sports, setSports] = useState([]);
+  const [selectedSport, setSelectedSport] = useState('all');
   const [error, setError] = useState(null);
+  const [claimDrawerOpen, setClaimDrawerOpen] = useState(false);
+  const [selectedGameId, setSelectedGameId] = useState(null);
+
+  const handleClaim = (row) => {
+    setSelectedGameId(row.gameId);
+    setClaimDrawerOpen(true);
+  };
+
+  const handleClaimSuccess = () => {
+    // Refresh games list after successful claim
+    fetchGames();
+  };
+
+  const handleCloseDrawer = () => {
+    setClaimDrawerOpen(false);
+    setSelectedGameId(null);
+  };
+
+  const fetchGames = async () => {
+    showLoading();
+    try {
+      const response = await fetch(`${API_BASE_URL}/games/details-report`);
+      if (response.ok) {
+        const data = await response.json();
+        setAllGames(data);
+        setGames(data);
+      } else {
+        setError('Failed to load games');
+      }
+    } catch (err) {
+      console.error('Error fetching games:', err);
+      setError('An error occurred while loading games');
+    } finally {
+      hideLoading();
+    }
+  };
 
   useEffect(() => {
-    const fetchGames = async () => {
-      showLoading();
+    const fetchSports = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/games/details-report`);
+        const response = await fetch(`${API_BASE_URL}/sports`);
         if (response.ok) {
           const data = await response.json();
-          setGames(data);
-        } else {
-          setError('Failed to load games');
+          setSports(data);
         }
       } catch (err) {
-        console.error('Error fetching games:', err);
-        setError('An error occurred while loading games');
-      } finally {
-        hideLoading();
+        console.error('Error fetching sports:', err);
       }
     };
 
+    fetchSports();
     fetchGames();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (selectedSport === 'all') {
+      setGames(allGames);
+    } else {
+      // Find the selected sport name
+      const selectedSportObj = sports.find(s => s.sportId === selectedSport);
+      const selectedSportName = selectedSportObj?.sportName;
+      
+      console.log('Selected sport name:', selectedSportName);
+      
+      const filtered = allGames.filter(game => {
+        return game.sportName === selectedSportName;
+      });
+      console.log('Filtered games:', filtered);
+      setGames(filtered);
+    }
+  }, [selectedSport, allGames, sports]);
+
+  const handleSportChange = (event) => {
+    setSelectedSport(event.target.value);
+  };
+
   const columns = [
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 120,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => handleClaim(params.row)}
+          sx={{
+            backgroundColor: '#FF5E00',
+            '&:hover': { backgroundColor: '#FFCE00' },
+            '&:disabled': { backgroundColor: '#515353' }
+          }}
+        >
+          Claim
+        </Button>
+      )
+    },
     { 
       field: 'gameId', 
       headerName: 'ID', 
@@ -58,14 +137,9 @@ function OpenGames() {
       }
     },
     { 
-      field: 'sportName', 
-      headerName: 'Sport', 
-      width: 120 
-    },
-    { 
-      field: 'leagueName', 
-      headerName: 'League', 
-      width: 150 
+      field: 'openPositions', 
+      headerName: 'OpenPosition', 
+      width: 130 
     },
     { 
       field: 'ageLevelName', 
@@ -88,93 +162,74 @@ function OpenGames() {
       width: 180 
     },
     { 
-      field: 'gameStatusName', 
-      headerName: 'Status', 
-      width: 120 
+      field: 'leagueName', 
+      headerName: 'League', 
+      width: 150 
     },
-    { 
-      field: 'positionName', 
-      headerName: 'Position', 
-      width: 130 
-    },
-    { 
-      field: 'positionStatus', 
-      headerName: 'Position Status', 
-      width: 140,
-      cellClassName: (params) => {
-        if (params.value === 'Open') return 'status-open';
-        if (params.value === 'Assigned') return 'status-assigned';
-        return '';
-      }
-    },
-    { 
-      field: 'assignedOfficial', 
-      headerName: 'Assigned Official', 
-      width: 180 
-    },
-    { 
-      field: 'positionRequired', 
-      headerName: 'Required', 
-      width: 100,
-      type: 'boolean'
-    },
-    { 
-      field: 'minRequired', 
-      headerName: 'Min', 
-      width: 70,
-      type: 'number'
-    },
-    { 
-      field: 'maxAllowed', 
-      headerName: 'Max', 
-      width: 70,
-      type: 'number'
-    },
+    
     { 
       field: 'gameNotes', 
       headerName: 'Notes', 
-      width: 250,
-      flex: 1
+      width: 250
     }
   ];
 
   return (
-    <Box sx={{ 
-      height: 'calc(100vh - 100px)', 
-      width: '100%', 
-      p: 3,
-      backgroundColor: '#1a1a2e'
-    }}>
-      <Paper sx={{ 
-        p: 2, 
-        mb: 2,
-        backgroundColor: '#16213e',
-        color: '#fff'
-      }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Open Games
-        </Typography>
-        <Typography variant="body2" color="rgba(255,255,255,0.7)">
-          View all games with position assignments and availability
-        </Typography>
-      </Paper>
+    <Box className="open-games-container">
+      <div className="open-games-header">
+        <div className="open-games-title-pill">
+          <Typography variant="body2" className="open-games-title">
+            Available Games
+          </Typography>
+        </div>
+        <FormControl size="small" className="sport-filter" variant="outlined">
+          <Select
+            value={selectedSport}
+            onChange={handleSportChange}
+            displayEmpty
+            sx={{
+              backgroundColor: '#3F9033',
+              color: 'white',
+              minWidth: 150,
+              height: 36,
+              borderRadius: '4px',
+              fontFamily: "'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.5)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.8)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'white',
+                borderWidth: '2px'
+              },
+              '& .MuiSelect-select': {
+                paddingTop: '8px',
+                paddingBottom: '8px'
+              },
+              '& .MuiSvgIcon-root': {
+                color: 'white'
+              }
+            }}
+          >
+            <MenuItem value="all">All Sports</MenuItem>
+            {sports.map((sport) => (
+              <MenuItem key={sport.sportId} value={sport.sportId}>
+                {sport.sportName}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </div>
 
       {error && (
-        <Paper sx={{ 
-          p: 2, 
-          mb: 2, 
-          backgroundColor: '#ff4444',
-          color: '#fff'
-        }}>
+        <Paper className="open-games-error">
           <Typography>{error}</Typography>
         </Paper>
       )}
 
-      <Paper sx={{ 
-        height: 'calc(100% - 120px)', 
-        width: '100%',
-        backgroundColor: '#16213e'
-      }}>
+      <Paper className="open-games-grid-container">
         <DataGrid
           rows={games}
           columns={columns}
@@ -186,47 +241,17 @@ function OpenGames() {
           }}
           pageSizeOptions={[10, 25, 50, 100]}
           disableRowSelectionOnClick
-          sx={{
-            border: 'none',
-            '& .MuiDataGrid-cell': {
-              color: '#fff',
-              borderColor: 'rgba(255,255,255,0.1)'
-            },
-            '& .MuiDataGrid-columnHeaders': {
-              backgroundColor: '#667eea',
-              color: '#fff',
-              borderColor: 'rgba(255,255,255,0.1)'
-            },
-            '& .MuiDataGrid-columnHeaderTitle': {
-              fontWeight: 'bold'
-            },
-            '& .MuiDataGrid-row': {
-              '&:hover': {
-                backgroundColor: 'rgba(102, 126, 234, 0.1)'
-              }
-            },
-            '& .MuiDataGrid-footerContainer': {
-              backgroundColor: '#16213e',
-              borderColor: 'rgba(255,255,255,0.1)',
-              color: '#fff'
-            },
-            '& .MuiTablePagination-root': {
-              color: '#fff'
-            },
-            '& .MuiIconButton-root': {
-              color: '#fff'
-            },
-            '& .status-open': {
-              color: '#4ade80',
-              fontWeight: 'bold'
-            },
-            '& .status-assigned': {
-              color: '#60a5fa',
-              fontWeight: 'bold'
-            }
-          }}
+          disableColumnVirtualization
+          className="open-games-datagrid"
         />
       </Paper>
+
+      <ClaimGame
+        open={claimDrawerOpen}
+        onClose={handleCloseDrawer}
+        gameId={selectedGameId}
+        onClaimSuccess={handleClaimSuccess}
+      />
     </Box>
   );
 }

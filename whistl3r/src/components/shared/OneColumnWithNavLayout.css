@@ -1,7 +1,46 @@
 .layout-container {
   display: flex;
   min-height: 100vh;
-  background-color: #1a1a2e;
+  background-color: #505452;
+  padding-top: 27px; /* Space for fixed header */
+}
+
+/* Fixed Header Bar */
+.layout-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 54px;
+  background-color: #0B0D0C;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  z-index: 999;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-spacer {
+  flex: 1;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
 }
 
 /* Navigation Sidebar */
@@ -29,7 +68,7 @@
 
 /* Navigation Header */
 .nav-header {
-  padding: 20px;
+  padding: 7px 20px 20px 20px;
   display: flex;
   align-items: center;
   justify-content: center;
