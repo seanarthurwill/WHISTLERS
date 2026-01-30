@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import { Box, Typography, Paper, Button, Select, MenuItem, FormControl } from '@mui/material';
 import { useLoading } from '../../contexts/LoadingContext';
+import { formatTime12Hour } from '../../utils/timeFormatter';
 import ClaimGame from './ClaimGame';
 import './OpenGames.css';
 
@@ -16,6 +17,9 @@ function OpenGames() {
   const [error, setError] = useState(null);
   const [claimDrawerOpen, setClaimDrawerOpen] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState(null);
+  const [userClaims, setUserClaims] = useState([]);
+  const [allClaims, setAllClaims] = useState([]);
+  const [gameView, setGameView] = useState('upcoming');
 
   const handleClaim = (row) => {
     setSelectedGameId(row.gameId);
@@ -32,12 +36,98 @@ function OpenGames() {
     setSelectedGameId(null);
   };
 
+  const fetchUserClaims = async () => {
+    try {
+      console.log('fetchUserClaims: Starting...');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const token = localStorage.getItem('accessToken');
+      
+      console.log('fetchUserClaims: Full user object', user);
+      
+      // The JWT uses 'OfficialId' claim - if not present, user is not an official
+      const officialId = user.OfficialId;
+      console.log('fetchUserClaims: Extracted officialId:', officialId);
+      
+      if (!officialId || !token) {
+        console.log('fetchUserClaims: No officialId or token, returning empty array');
+        return [];
+      }
+
+      // Fetch all games to get their IDs, then get claims for each
+      const gamesResponse = await fetch(`${API_BASE_URL}/games/details-report`);
+      if (!gamesResponse.ok) {
+        console.log('fetchUserClaims: Games fetch failed');
+        return [];
+      }
+      
+      const gamesData = await gamesResponse.json();
+      const uniqueGameIds = [...new Set(gamesData.map(g => g.gameId))];
+      
+      console.log('fetchUserClaims: Fetching claims for games:', uniqueGameIds);
+      
+      // Fetch claims for all games
+      const claimsPromises = uniqueGameIds.map(gameId =>
+        fetch(`${API_BASE_URL}/claims/game/${gameId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }).then(async res => {
+          console.log(`Claims API response for game ${gameId}:`, res.status, res.ok);
+          if (res.ok) {
+            const data = await res.json();
+            console.log(`Claims data for game ${gameId}:`, data);
+            return data;
+          }
+          console.log(`No claims for game ${gameId}`);
+          return [];
+        }).catch(err => {
+          console.error(`Error fetching claims for game ${gameId}:`, err);
+          return [];
+        })
+      );
+      
+      const allClaims = await Promise.all(claimsPromises);
+      console.log('All claims arrays:', allClaims);
+      const flatClaims = allClaims.flat();
+      
+      console.log('All flat claims:', flatClaims);
+      
+      // Store all claims
+      setAllClaims(flatClaims);
+      
+      // Filter to only this user's pending claims
+      const userPendingClaims = flatClaims.filter(
+        claim => Number(claim.officialId) === Number(officialId) && claim.claimStatus === 'Pending'
+      );
+      
+      console.log('User pending claims:', userPendingClaims);
+      console.log('OfficialId for comparison:', officialId);
+      
+      setUserClaims(userPendingClaims);
+      return userPendingClaims;
+    } catch (err) {
+      console.error('Error fetching user claims:', err);
+      return [];
+    }
+  };
+
   const fetchGames = async () => {
+    // Check if user is an official before loading games
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (!user.OfficialId) {
+      setError('Only officials can view and claim games');
+      return;
+    }
+
     showLoading();
     try {
-      const response = await fetch(`${API_BASE_URL}/games/details-report`);
-      if (response.ok) {
-        const data = await response.json();
+      const [gamesResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/games/details-report`),
+        fetchUserClaims()
+      ]);
+      
+      if (gamesResponse.ok) {
+        const data = await gamesResponse.json();
         setAllGames(data);
         setGames(data);
       } else {
@@ -91,6 +181,10 @@ function OpenGames() {
     setSelectedSport(event.target.value);
   };
 
+  const handleGameViewChange = (event) => {
+    setGameView(event.target.value);
+  };
+
   const columns = [
     {
       field: 'actions',
@@ -98,20 +192,59 @@ function OpenGames() {
       width: 120,
       sortable: false,
       filterable: false,
+      renderCell: (params) => {
+        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(params.row.gameId));
+        return (
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => handleClaim(params.row)}
+            sx={{
+              backgroundColor: hasPendingClaim ? '#FF5E00' : '#3F9033',
+              '&:hover': { backgroundColor: hasPendingClaim ? '#FFCE00' : '#5aa84a' },
+              '&:disabled': { backgroundColor: '#515353' },
+              minWidth: '90px'
+            }}
+          >
+            {hasPendingClaim ? 'Edit Claim' : 'Claim'}
+          </Button>
+        );
+      }
+    },
+    { 
+      field: 'claimStatus', 
+      headerName: 'Claim Status', 
+      width: 120,
+      valueGetter: (value, row) => {
+        console.log('Checking claim for game:', row.gameId, 'User claims:', userClaims.map(c => c.gameId));
+        const hasPendingClaim = userClaims.some(claim => {
+          console.log(`Comparing claim.gameId (${claim.gameId}, ${typeof claim.gameId}) === row.gameId (${row.gameId}, ${typeof row.gameId})`);
+          return Number(claim.gameId) === Number(row.gameId);
+        });
+        return hasPendingClaim ? 'Pending' : 'Edit Claim';
+      },
       renderCell: (params) => (
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => handleClaim(params.row)}
+        <Box
           sx={{
-            backgroundColor: '#FF5E00',
-            '&:hover': { backgroundColor: '#FFCE00' },
-            '&:disabled': { backgroundColor: '#515353' }
+            color: params.value === 'Pending' ? '#FF5E00' : '#3F9033',
+            fontWeight: 'bold'
           }}
         >
-          Claim
-        </Button>
+          {params.value}
+        </Box>
       )
+    },
+    { 
+      field: 'claimCount', 
+      headerName: '# of Claims', 
+      width: 100,
+      valueGetter: (value, row) => {
+        const gameClaimsCount = allClaims.filter(claim => 
+          Number(claim.gameId) === Number(row.gameId) && 
+          claim.claimStatus !== 'Withdrawn'
+        ).length;
+        return gameClaimsCount;
+      }
     },
     { 
       field: 'gameId', 
@@ -133,7 +266,7 @@ function OpenGames() {
       width: 100,
       valueFormatter: (value) => {
         if (!value) return '';
-        return value;
+        return formatTime12Hour(value);
       }
     },
     { 
@@ -177,11 +310,41 @@ function OpenGames() {
   return (
     <Box className="open-games-container">
       <div className="open-games-header">
-        <div className="open-games-title-pill">
-          <Typography variant="body2" className="open-games-title">
-            Available Games
-          </Typography>
-        </div>
+        <FormControl size="small" className="game-view-filter" variant="outlined">
+          <Select
+            value={gameView}
+            onChange={handleGameViewChange}
+            displayEmpty
+            sx={{
+              backgroundColor: '#3F9033',
+              color: 'white',
+              minWidth: 180,
+              height: 36,
+              borderRadius: '16px',
+              fontFamily: "'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.5)'
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.8)'
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'white',
+                borderWidth: '2px'
+              },
+              '& .MuiSelect-select': {
+                paddingTop: '8px',
+                paddingBottom: '8px'
+              },
+              '& .MuiSvgIcon-root': {
+                color: 'white'
+              }
+            }}
+          >
+            <MenuItem value="upcoming">Upcoming Games</MenuItem>
+            <MenuItem value="my-games">My Games</MenuItem>
+          </Select>
+        </FormControl>
         <FormControl size="small" className="sport-filter" variant="outlined">
           <Select
             value={selectedSport}
@@ -192,7 +355,7 @@ function OpenGames() {
               color: 'white',
               minWidth: 150,
               height: 36,
-              borderRadius: '4px',
+              borderRadius: '16px',
               fontFamily: "'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: 'rgba(255, 255, 255, 0.5)'

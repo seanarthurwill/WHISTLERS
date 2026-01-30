@@ -13,12 +13,9 @@ import OpenGames from '../games/OpenGames';
 function Dashboard() {
   const navItems = [
     { label: 'Dashboard', href: '/dashboard', icon: <DashboardIcon /> },
-    { label: 'Games', href: '/dashboard/games', icon: <SportsIcon /> },
-    { label: 'Officials', href: '/dashboard/officials', icon: <PeopleIcon /> },
-    { label: 'Organizations', href: '/dashboard/organizations', icon: <BusinessIcon /> },
-    { label: 'Schedule', href: '/dashboard/schedule', icon: <CalendarMonthIcon /> },
+    { label: 'Games', href: '/dashboard/games', icon: <SportsIcon /> },    
     { label: 'Assignments', href: '/dashboard/assignments', icon: <AssignmentIcon /> },
-    { label: 'Pay Scale', href: '/dashboard/payscale', icon: <AttachMoneyIcon /> },
+    { label: 'Officials', href: '/dashboard/officials', icon: <PeopleIcon /> },
     { label: 'Settings', href: '/dashboard/settings', icon: <SettingsIcon /> },
   ];
 

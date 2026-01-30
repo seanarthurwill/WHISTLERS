@@ -31,7 +31,7 @@ namespace GamesService.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<Game>> GetById(int id)
+        public async Task<ActionResult<GameDetailDto>> GetById(int id)
         {
             var game = await _gameService.GetGameByIdAsync(id);
             if (game == null) return NotFound();
@@ -76,6 +76,60 @@ namespace GamesService.Controllers
         }
     }
 
+    [ApiController]
+    [Route("api/claims")]
+    public class ClaimsController : ControllerBase
+    {
+        private readonly IClaimsService _claimsService;
+
+        public ClaimsController(IClaimsService claimsService)
+        {
+            _claimsService = claimsService;
+        }
+
+        /// <summary>
+        /// Get all claims for a specific game
+        /// </summary>
+        [HttpGet("game/{gameId}")]
+        public async Task<ActionResult<IEnumerable<GameClaim>>> GetClaimsByGameId(int gameId)
+        {
+            var claims = await _claimsService.GetClaimsByGameIdAsync(gameId);
+            return Ok(claims);
+        }
+
+        /// <summary>
+        /// Create a new claim for a game position
+        /// </summary>
+        [HttpPost]
+        public async Task<ActionResult<GameClaim>> CreateClaim([FromBody] CreateClaimRequest request)
+        {
+            var claim = await _claimsService.CreateClaimAsync(
+                request.GameId, 
+                request.OfficialId, 
+                request.PositionId
+            );
+            return CreatedAtAction(nameof(GetClaimsByGameId), new { gameId = claim.GameId }, claim);
+        }
+
+        /// <summary>
+        /// Soft delete (cancel) a claim
+        /// </summary>
+        [HttpDelete("{claimId}")]
+        public async Task<IActionResult> SoftDeleteClaim(int claimId, [FromQuery] int deletedBy)
+        {
+            var deleted = await _claimsService.SoftDeleteClaimAsync(claimId, deletedBy);
+            if (!deleted) return NotFound();
+            return NoContent();
+        }
+    }
+
+    public class CreateClaimRequest
+    {
+        public int GameId { get; set; }
+        public int OfficialId { get; set; }
+        public int PositionId { get; set; }
+    }
+    
     [ApiController]
     [Route("api/game-assignments")]
     public class GameAssignmentsController : ControllerBase

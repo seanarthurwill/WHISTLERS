@@ -1,9 +1,7 @@
 {
   "version": "0.2.0",
   "configurations": [
-    // ========================================
-    // EXISTING: Direct Launch Configurations
-    // ========================================
+
     {
       "name": "Games Service",
       "type": "coreclr",
@@ -69,9 +67,7 @@
       "type": "coreclr",
       "request": "attach"
     },
-    // ========================================
-    // NEW: Docker Attach Configurations
-    // ========================================
+
     {
       "name": "Docker: Attach to API Gateway",
       "type": "coreclr",

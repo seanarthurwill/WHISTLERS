@@ -9,6 +9,7 @@ namespace GamesService.Data
 
         public DbSet<Game> Games { get; set; } = null!;
         public DbSet<GameAssignment> GameAssignments { get; set; } = null!;
+        public DbSet<GameClaim> GameClaims { get; set; } = null!;
         public DbSet<GameStatus> GameStatuses { get; set; } = null!;
         public DbSet<Sport> Sports { get; set; } = null!;
         public DbSet<League> Leagues { get; set; } = null!;

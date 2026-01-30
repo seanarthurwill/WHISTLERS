@@ -7,7 +7,7 @@ namespace GamesService.Services
     public interface IGameService
     {
         Task<IEnumerable<Game>> GetAllGamesAsync();
-        Task<Game?> GetGameByIdAsync(int id);
+        Task<GameDetailDto?> GetGameByIdAsync(int id);
         Task<IEnumerable<Game>> GetGamesByDateRangeAsync(DateTime startDate, DateTime endDate);
         Task<IEnumerable<Game>> GetGamesByStatusAsync(string status);
         Task<IEnumerable<GameDetailsReport>> GetGameDetailsReportAsync();
@@ -49,6 +49,13 @@ namespace GamesService.Services
         Task<bool> DeleteLeagueAsync(int id);
     }
 
+    public interface IClaimsService
+    {
+        Task<IEnumerable<GameClaim>> GetClaimsByGameIdAsync(int gameId);
+        Task<GameClaim> CreateClaimAsync(int gameId, int officialId, int positionId);
+        Task<bool> SoftDeleteClaimAsync(int claimId, int deletedBy);
+    }
+
     // ===== IMPLEMENTATIONS =====
 
     public class GameService : IGameService
@@ -68,11 +75,51 @@ namespace GamesService.Services
                 .ToListAsync();
         }
 
-        public async Task<Game?> GetGameByIdAsync(int id)
+        public async Task<GameDetailDto?> GetGameByIdAsync(int id)
         {
-            return await _context.Games
-                .Include(g => g.Assignments)
-                .FirstOrDefaultAsync(g => g.GameId == id);
+            var gameDetail = await _context.Database
+                .SqlQuery<GameDetailDto>($@"
+                    SELECT 
+                        g.game_id AS ""GameId"",
+                        s.sport_name AS ""SportName"",
+                        l.league_name AS ""LeagueName"",
+                        al.age_level_name AS ""LevelName"",
+                        g.game_date AS ""GameDate"",
+                        g.game_time AS ""GameTime"",
+                        v.venue_name AS ""VenueName"",
+                        g.home_team AS ""HomeTeam"",
+                        g.away_team AS ""AwayTeam""
+                    FROM games g
+                    LEFT JOIN leagues l ON g.league_id = l.league_id
+                    LEFT JOIN sports s ON l.sport_id = s.sport_id
+                    LEFT JOIN age_levels al ON g.age_level_id = al.age_level_id
+                    LEFT JOIN venues v ON g.venue_id = v.venue_id
+                    WHERE g.game_id = {id}")
+                .FirstOrDefaultAsync();
+
+            if (gameDetail == null)
+                return null;
+
+            // Get open positions for this game
+            var openPositions = await _context.Database
+                .SqlQuery<OpenPositionDto>($@"
+                    SELECT 
+                        p.position_id AS ""PositionId"",
+                        p.position_name AS ""PositionName"",
+                        alp.is_required AS ""IsRequired""
+                    FROM age_levels al
+                    INNER JOIN age_level_positions alp ON al.age_level_id = alp.age_level_id
+                    INNER JOIN positions p ON alp.position_id = p.position_id
+                    LEFT JOIN game_assignments ga ON ga.game_id = {id} AND ga.position_id = p.position_id
+                    WHERE al.age_level_id = (SELECT age_level_id FROM games WHERE game_id = {id})
+                        AND alp.is_active = true
+                        AND ga.game_assignment_id IS NULL
+                    ORDER BY alp.display_order")
+                .ToListAsync();
+
+            gameDetail.OpenPositions = openPositions;
+
+            return gameDetail;
         }
 
         public async Task<IEnumerable<Game>> GetGamesByDateRangeAsync(DateTime startDate, DateTime endDate)
@@ -412,6 +459,73 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             if (league == null) return false;
 
             _context.Leagues.Remove(league);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+    }
+
+    public class ClaimsService : IClaimsService
+    {
+        private readonly ApplicationDbContext _context;
+
+        public ClaimsService(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<IEnumerable<GameClaim>> GetClaimsByGameIdAsync(int gameId)
+        {
+            return await _context.GameClaims
+                .Include(gc => gc.Game)
+                .Where(gc => gc.GameId == gameId)
+                .OrderBy(gc => gc.ClaimedAt)
+                .ToListAsync();
+        }
+
+        public async Task<GameClaim> CreateClaimAsync(int gameId, int officialId, int positionId)
+        {
+            // Check if a claim already exists for this game, official, and position
+            var existingClaim = await _context.GameClaims
+                .FirstOrDefaultAsync(c => 
+                    c.GameId == gameId && 
+                    c.OfficialId == officialId && 
+                    c.PositionId == positionId);
+
+            if (existingClaim != null)
+            {
+                // Update existing claim to Pending and refresh the claimed date
+                existingClaim.ClaimStatus = "Pending";
+                existingClaim.ClaimedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return existingClaim;
+            }
+
+            // Create new claim if none exists
+            var claim = new GameClaim
+            {
+                GameId = gameId,
+                OfficialId = officialId,
+                PositionId = positionId,
+                ClaimStatus = "Pending",
+                ClaimedAt = DateTime.UtcNow,
+                ReviewedBy = null,
+                ReviewedAt = null,
+                Notes = null
+            };
+
+            _context.GameClaims.Add(claim);
+            await _context.SaveChangesAsync();
+            return claim;
+        }
+
+        public async Task<bool> SoftDeleteClaimAsync(int claimId, int deletedBy)
+        {
+            var claim = await _context.GameClaims.FindAsync(claimId);
+            if (claim == null) return false;
+
+            // Soft delete by updating status to "Withdrawn"
+            claim.ClaimStatus = "Withdrawn";
+            
             await _context.SaveChangesAsync();
             return true;
         }

@@ -5,19 +5,12 @@ using Amazon.Lambda.AspNetCoreServer.Hosting; // ADD THIS
 using UsersService.Data;
 using UsersService.Services;
 using Microsoft.EntityFrameworkCore;
-using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.DataModel;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
-    });
+builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -46,13 +39,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.EnableSensitiveDataLogging();
         options.EnableDetailedErrors();
     }
-});
-
-builder.Services.AddAWSService<IAmazonDynamoDB>();
-builder.Services.AddScoped<IDynamoDBContext>(sp =>
-{
-    var client = sp.GetRequiredService<IAmazonDynamoDB>();
-    return new DynamoDBContext(client);
 });
 
 // Add Authentication & Encryption Services
@@ -95,7 +81,6 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// CORS must come first, before authentication
 app.UseCors("AllowAll");
 
 if (app.Environment.IsDevelopment())

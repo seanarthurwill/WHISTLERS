@@ -10,6 +10,8 @@ using Amazon.DynamoDBv2.DataModel;
 using Microsoft.IdentityModel.Tokens;
 // User and Role models
 using UsersService.Models;
+using UsersService.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace UsersService.Services
 {
@@ -42,7 +44,7 @@ namespace UsersService.Services
     public interface IJwtService
     {
         /// <summary>Creates JWT access token with user info and roles</summary>
-        string GenerateAccessToken(User user, List<Permission> permissions);
+        string GenerateAccessToken(User user, List<Permission> permissions, int? officialId = null);
         /// <summary>Generates cryptographically secure refresh token</summary>
         string GenerateRefreshToken();
         /// <summary>Extracts claims principal from expired token (for refresh flow)</summary>
@@ -167,7 +169,7 @@ public class UserSession
         /// <summary>
         /// Generates JWT access token containing user information and roles
         /// </summary>
-        public string GenerateAccessToken(User user, List<Permission> permissions)
+        public string GenerateAccessToken(User user, List<Permission> permissions, int? officialId = null)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_secretKey); // Convert secret to bytes
@@ -181,6 +183,12 @@ public class UserSession
                 new Claim(ClaimTypes.Surname, user.LastName), // Last name
                 new Claim("IsActive", user.IsActive.ToString()) // Account status
             };
+
+            // Add OfficialId if provided
+            if (officialId.HasValue)
+            {
+                claims.Add(new Claim("OfficialId", officialId.Value.ToString()));
+            }
 
             // Add role claims for authorization
             foreach (var permission in permissions)
@@ -295,9 +303,10 @@ public class UserSession
         private readonly Dictionary<string, TokenRevocation> _revokedTokens = new(); // In-memory revoked tokens
         private readonly IHttpClientFactory _httpClientFactory; // HTTP client for service calls
         private readonly ILogger<AuthenticationService> _logger; // Logger
+        private readonly ApplicationDbContext _context; // Database context
 
         private readonly int _expirationMinutes;
-        private readonly IDynamoDBContext _dynamoContext;
+        private readonly IDynamoDBContext? _dynamoContext;
         /// <summary>
         /// Initializes authentication service with required dependencies
         /// </summary>
@@ -308,7 +317,8 @@ public class UserSession
             IConfiguration configuration,
             IHttpClientFactory httpClientFactory,
             ILogger<AuthenticationService> logger,
-            IDynamoDBContext dynamoContext)
+            ApplicationDbContext context,
+            IDynamoDBContext? dynamoContext = null)
         {
             _userService = userService;
             _roleService = roleService;
@@ -316,6 +326,7 @@ public class UserSession
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _context = context;
             _dynamoContext = dynamoContext;
             _expirationMinutes = int.Parse(configuration["Jwt:ExpirationMinutes"] ?? "60");
         }
@@ -379,8 +390,13 @@ public class UserSession
                     }
                 }
 
+                // Fetch official_id if the user is an official
+                var officialId = await _context.Database
+                    .SqlQuery<int?>($"SELECT official_id AS \"Value\" FROM officials WHERE user_id = {user.UserId}")
+                    .FirstOrDefaultAsync();
+
                 // Generate JWT access token and refresh token
-                var accessToken = _jwtService.GenerateAccessToken(user, permissions);
+                var accessToken = _jwtService.GenerateAccessToken(user, permissions, officialId);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
                 // Update last login timestamp
@@ -403,8 +419,15 @@ public class UserSession
             };
 
             // Save to DynamoDB (persists across Lambda invocations)
-            await _dynamoContext.SaveAsync(session);
-            _logger.LogInformation($"Session created for user {user.UserId}: {tokenHash}");
+            if (_dynamoContext != null)
+            {
+                await _dynamoContext.SaveAsync(session);
+                _logger.LogInformation($"Session created for user {user.UserId}: {tokenHash}");
+            }
+            else
+            {
+                _logger.LogWarning("DynamoDB context not available - session not persisted");
+            }
 
                 // Return successful result with tokens
                 return new AuthResult
@@ -449,6 +472,12 @@ private string ComputeHash(string input)
                 };
             }
 
+            if (_dynamoContext == null)
+            {
+                _logger.LogWarning("DynamoDB context not available - cannot verify refresh token");
+                return new AuthResult { Success = false, Message = "Session management unavailable" };
+            }
+
             // NEW: Find session by refresh token using scan (or create GSI for better performance)
             var scanConditions = new List<ScanCondition>
             {
@@ -487,13 +516,21 @@ private string ComputeHash(string input)
                 if (role != null) roles.Add(role);
             }
 
+            // Fetch official_id if the user is an official
+            var officialId = await _context.Database
+                .SqlQuery<int?>($"SELECT official_id AS \"Value\" FROM officials WHERE user_id = {user.UserId}")
+                .FirstOrDefaultAsync();
+
             // Generate new tokens
-            var newAccessToken = _jwtService.GenerateAccessToken(user, permissions);
+            var newAccessToken = _jwtService.GenerateAccessToken(user, permissions, officialId);
             var newRefreshToken = _jwtService.GenerateRefreshToken();
 
             // Revoke old session
             session.RevokedAt = DateTime.UtcNow;
-            await _dynamoContext.SaveAsync(session);
+            if (_dynamoContext != null)
+            {
+                await _dynamoContext.SaveAsync(session);
+            }
 
             // Create new session
             var tokenHash = ComputeHash(newAccessToken);
@@ -511,7 +548,10 @@ private string ComputeHash(string input)
                 TimeToLive = new DateTimeOffset(expiresAt.AddDays(30)).ToUnixTimeSeconds()
             };
 
-            await _dynamoContext.SaveAsync(newSession);
+            if (_dynamoContext != null)
+            {
+                await _dynamoContext.SaveAsync(newSession);
+            }
 
             return new AuthResult
             {
@@ -545,6 +585,12 @@ private string ComputeHash(string input)
             if (!_jwtService.ValidateToken(token, out var principal))
             {
                 return false; // Invalid or expired JWT
+            }
+
+            if (_dynamoContext == null)
+            {
+                _logger.LogWarning("DynamoDB context not available - skipping session validation");
+                return true; // Allow token if DynamoDB not available (local dev)
             }
 
             // NEW: Check DynamoDB for revocation
@@ -606,6 +652,12 @@ private string ComputeHash(string input)
             if (string.IsNullOrEmpty(token))
                 return false;
 
+            if (_dynamoContext == null)
+            {
+                _logger.LogWarning("DynamoDB context not available - cannot revoke token");
+                return false;
+            }
+
             // Load session from DynamoDB
             var tokenHash = ComputeHash(token);
             var session = await _dynamoContext.LoadAsync<UserSession>(tokenHash);
@@ -618,7 +670,10 @@ private string ComputeHash(string input)
 
             // Mark as revoked
             session.RevokedAt = DateTime.UtcNow;
-            await _dynamoContext.SaveAsync(session);
+            if (_dynamoContext != null)
+            {
+                await _dynamoContext.SaveAsync(session);
+            }
             
             _logger.LogInformation($"Token revoked for user {session.UserId}: {tokenHash}");
             return true;

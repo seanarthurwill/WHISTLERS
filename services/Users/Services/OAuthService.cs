@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
 using UsersService.Models;
+using UsersService.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace UsersService.Services
 {
@@ -38,17 +40,20 @@ namespace UsersService.Services
         private readonly IJwtService _jwtService;
         private readonly IRoleService _roleService;
         private readonly ILogger<OAuthService> _logger;
+        private readonly ApplicationDbContext _context;
 
         public OAuthService(
             IUserService userService,
             IJwtService jwtService,
             IRoleService roleService,
-            ILogger<OAuthService> logger)
+            ILogger<OAuthService> logger,
+            ApplicationDbContext context)
         {
             _userService = userService;
             _jwtService = jwtService;
             _roleService = roleService;
             _logger = logger;
+            _context = context;
         }
 
         public async Task<OAuthLoginResult> LoginWithProviderAsync(string provider, ClaimsPrincipal claimsPrincipal)
@@ -108,8 +113,13 @@ namespace UsersService.Services
                     }
                 }
 
+                // Fetch official_id if the user is an official
+                var officialId = await _context.Database
+                    .SqlQuery<int?>($"SELECT official_id AS \"Value\" FROM officials WHERE user_id = {user.UserId}")
+                    .FirstOrDefaultAsync();
+
                 // Generate tokens
-                var accessToken = _jwtService.GenerateAccessToken(user, permissions);
+                var accessToken = _jwtService.GenerateAccessToken(user, permissions, officialId);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
                 // Update last login

@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { useLoading } from '../../contexts/LoadingContext';
+import { formatTime12Hour } from '../../utils/timeFormatter';
 import './ClaimGame.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -23,6 +24,7 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
   const { showLoading, hideLoading } = useLoading();
   const [gameDetails, setGameDetails] = useState(null);
   const [selectedPositions, setSelectedPositions] = useState([]);
+  const [userClaims, setUserClaims] = useState([]);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -30,15 +32,46 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
   useEffect(() => {
     if (open && gameId) {
       fetchGameDetails();
+      fetchUserClaimsForGame();
     } else {
       // Reset state when drawer closes
       setGameDetails(null);
       setSelectedPositions([]);
+      setUserClaims([]);
       setError(null);
       setSuccess(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, gameId]);
+
+  const fetchUserClaimsForGame = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const token = localStorage.getItem('accessToken');
+      
+      if (!user.OfficialId || !token) {
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/claims/game/${gameId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const claims = await response.json();
+        // Filter to only this user's pending claims
+        const myClaims = claims.filter(
+          claim => Number(claim.officialId) === Number(user.OfficialId) && claim.claimStatus != 'Withdrawn'
+        );
+        console.log('Fetched user claims for game:', myClaims);
+        setUserClaims(myClaims);
+      }
+    } catch (err) {
+      console.error('Error fetching user claims:', err);
+    }
+  };
 
   const fetchGameDetails = async () => {
     showLoading();
@@ -59,14 +92,66 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
     }
   };
 
-  const handlePositionToggle = (positionName) => {
+  const handlePositionToggle = (position) => {
     setSelectedPositions(prev => {
-      if (prev.includes(positionName)) {
-        return prev.filter(p => p !== positionName);
+      const exists = prev.find(p => p.positionId === position.positionId);
+      if (exists) {
+        return prev.filter(p => p.positionId !== position.positionId);
       } else {
-        return [...prev, positionName];
+        return [...prev, position];
       }
     });
+  };
+
+  const handleUnclaim = async (position) => {
+    setError(null);
+    console.log('Attempting to unclaim position:', position);
+    const claim = userClaims.find(c => Number(c.positionId) === Number(position.positionId));
+    console.log('Found claim to delete:', claim);
+    if (!claim || !claim.gameClaimId) {
+      setError('Could not find claim to delete');
+      return;
+    }
+
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const token = localStorage.getItem('accessToken');
+    
+    if (!token) {
+      setError('Authentication token not found. Please log in again.');
+      return;
+    }
+
+    if (!user.OfficialId) {
+      setError('User ID not found.');
+      return;
+    }
+
+    try {
+      showLoading();
+      const response = await fetch(`${API_BASE_URL}/claims/${claim.gameClaimId}?deletedBy=${user.OfficialId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok || response.status === 204) {
+        // Remove from selectedPositions if it's there
+        setSelectedPositions(prev => prev.filter(p => p.positionId !== position.positionId));
+        // Refresh claims to update UI
+        await fetchUserClaimsForGame();
+        if (onClaimSuccess) {
+          onClaimSuccess();
+        }
+      } else {
+        setError('Failed to unclaim position');
+      }
+    } catch (err) {
+      console.error('Error unclaiming position:', err);
+      setError('An error occurred while unclaiming the position');
+    } finally {
+      hideLoading();
+    }
   };
 
   const handleSubmitClaim = async () => {
@@ -80,7 +165,7 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
     
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('accessToken');
       
       if (!token) {
         setError('Authentication token not found. Please log in again.');
@@ -88,9 +173,15 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
         return;
       }
 
+      if (!user.OfficialId) {
+        setError('Only officials can claim games.');
+        setSubmitting(false);
+        return;
+      }
+
       // Submit claim for each selected position
-      const claimPromises = selectedPositions.map(positionName => 
-        fetch(`${API_BASE_URL}/game-assignments`, {
+      const claimPromises = selectedPositions.map(position => 
+        fetch(`${API_BASE_URL}/claims`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -98,8 +189,8 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
           },
           body: JSON.stringify({
             gameId: gameId,
-            positionName: positionName,
-            userId: user.userId
+            officialId: user.OfficialId,
+            positionId: position.positionId
           })
         })
       );
@@ -108,14 +199,11 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
       const allSuccessful = results.every(r => r.ok);
 
       if (allSuccessful) {
-        setSuccess(true);
-        setSelectedPositions([]);
-        setTimeout(() => {
-          if (onClaimSuccess) {
-            onClaimSuccess();
-          }
-          onClose();
-        }, 1500);
+        // Close drawer and refresh grid immediately
+        onClose();
+        if (onClaimSuccess) {
+          onClaimSuccess();
+        }
       } else {
         setError('Failed to claim one or more positions');
       }
@@ -127,7 +215,7 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
     }
   };
 
-  const openPositions = gameDetails?.positions?.filter(p => p.positionStatus === 'Open') || [];
+  const openPositions = gameDetails?.openPositions || [];
   const hasOpenPositions = openPositions.length > 0;
 
   return (
@@ -173,7 +261,7 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
                     <strong>Date:</strong> {new Date(gameDetails.gameDate).toLocaleDateString()}
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Time:</strong> {gameDetails.gameTime}
+                    <strong>Time:</strong> {formatTime12Hour(gameDetails.gameTime)}
                   </Typography>
                   <Typography variant="body2">
                     <strong>Sport:</strong> {gameDetails.sportName}
@@ -182,7 +270,7 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
                     <strong>League:</strong> {gameDetails.leagueName}
                   </Typography>
                   <Typography variant="body2">
-                    <strong>Level:</strong> {gameDetails.ageLevelName}
+                    <strong>Level:</strong> {gameDetails.levelName}
                   </Typography>
                   <Typography variant="body2">
                     <strong>Teams:</strong> {gameDetails.homeTeam} vs {gameDetails.awayTeam}
@@ -207,35 +295,56 @@ function ClaimGame({ open, onClose, gameId, onClaimSuccess }) {
                   </Alert>
                 ) : (
                   <FormGroup>
-                    {openPositions.map((position) => (
-                      <FormControlLabel
-                        key={position.positionName}
-                        control={
-                          <Checkbox
-                            checked={selectedPositions.includes(position.positionName)}
-                            onChange={() => handlePositionToggle(position.positionName)}
-                            sx={{
-                              color: '#667eea',
-                              '&.Mui-checked': {
-                                color: '#667eea'
-                              }
-                            }}
+                    {openPositions.map((position) => {
+                      const hasClaim = userClaims.some(claim => Number(claim.positionId) === Number(position.positionId));
+                      return (
+                        <Box key={position.positionId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={hasClaim || selectedPositions.some(p => p.positionId === position.positionId)}
+                                onChange={() => handlePositionToggle(position)}
+                                disabled={hasClaim}
+                                sx={{
+                                  color: '#667eea',
+                                  '&.Mui-checked': {
+                                    color: '#667eea'
+                                  }
+                                }}
+                              />
+                            }
+                            label={
+                              <Box>
+                                <Typography variant="body1">
+                                  {position.positionName}
+                                  {hasClaim && (
+                                    <Typography component="span" sx={{ ml: 1, color: '#FF5E00', fontWeight: 'bold', fontSize: '0.875rem' }}>
+                                      (Claimed)
+                                    </Typography>
+                                  )}
+                                </Typography>
+                                {position.isRequired && (
+                                  <Typography variant="caption" color="error">
+                                    Required Position
+                                  </Typography>
+                                )}
+                              </Box>
+                            }
                           />
-                        }
-                        label={
-                          <Box>
-                            <Typography variant="body1">
-                              {position.positionName}
-                            </Typography>
-                            {position.positionRequired && (
-                              <Typography variant="caption" color="error">
-                                Required Position
-                              </Typography>
-                            )}
-                          </Box>
-                        }
-                      />
-                    ))}
+                          {hasClaim && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              color="error"
+                              onClick={() => handleUnclaim(position)}
+                              sx={{ ml: 'auto' }}
+                            >
+                              Unclaim
+                            </Button>
+                          )}
+                        </Box>
+                      );
+                    })}
                   </FormGroup>
                 )}
               </Box>

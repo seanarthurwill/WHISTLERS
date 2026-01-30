@@ -32,6 +32,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IGameService, GameService>();
 builder.Services.AddScoped<ILeagueService, LeagueService>();
 builder.Services.AddScoped<ISportService, SportService>();
+builder.Services.AddScoped<IGameAssignmentService, GameAssignmentService>();
+builder.Services.AddScoped<IClaimsService, ClaimsService>();
 
 // Enable detailed logging for EF Core queries
 builder.Logging.AddConsole();
