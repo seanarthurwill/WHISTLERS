@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { Menu, MenuItem } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import whistlersIcon from '../../assets/images/WHISTLERS_ICON_dark.png';
 import whistlersDarkLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
 import './OneColumnWithNavLayout.css';
@@ -9,6 +11,9 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [user, setUser] = useState(null);
   const [avatarColor, setAvatarColor] = useState('#667eea');
+  const [anchorEl, setAnchorEl] = useState(null);
+  const navigate = useNavigate();
+  const open = Boolean(anchorEl);
 
   useEffect(() => {
     // Get user from localStorage
@@ -49,14 +54,87 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
     setIsExpanded(!isExpanded);
   };
 
+  const handleAvatarClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = async () => {
+    handleMenuClose();
+    
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const token = localStorage.getItem('accessToken');
+      
+      if (token) {
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+      
+      // Clear local storage
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      
+      // Wait 3 seconds then redirect
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Clear storage and redirect anyway
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      
+      setTimeout(() => {
+        navigate('/login');
+      }, 3000);
+    }
+  };
+
   return (
     <div className="layout-container">
       {/* Fixed Header Bar */}
-      <header className="layout-header">
+      <header className={`layout-header ${isExpanded ? 'nav-expanded' : ''}`}>
         <div className="header-spacer"></div>
-        <div className="user-avatar" style={{ backgroundColor: avatarColor }}>
+        <div 
+          className="user-avatar" 
+          style={{ backgroundColor: avatarColor }}
+          onClick={handleAvatarClick}
+          aria-controls={open ? 'user-menu' : undefined}
+          aria-haspopup="true"
+          aria-expanded={open ? 'true' : undefined}
+        >
          {user ? getInitials() : 'NA'}
         </div>
+        <Menu
+          id="user-menu"
+          anchorEl={anchorEl}
+          open={open}
+          onClose={handleMenuClose}
+          MenuListProps={{
+            'aria-labelledby': 'user-avatar',
+          }}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+          <MenuItem onClick={handleLogout}>Logout</MenuItem>
+        </Menu>
       </header>
 
       {/* Collapsible Navigation Bar */}

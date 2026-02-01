@@ -56,6 +56,28 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* MUI Select dropdown border radius */
+.MuiSelect-select {
+  border-radius: 16px !important;
+}
+
+.MuiOutlinedInput-root {
+  border-radius: 16px !important;
+}
+
+/* MUI DataGrid and Box border radius */
+.MuiDataGrid-root {
+  border-radius: 16px !important;
+}
+
+.MuiBox-root {
+  border-radius: 16px !important;
+}
+
+.MuiPaper-root {
+  border-radius: 16px !important;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;

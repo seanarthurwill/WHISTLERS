@@ -12,13 +12,12 @@
   left: 0;
   right: 0;
   height: 54px;
-  background-color: #0B0D0C;
+  background: linear-gradient(to bottom, #0B0D0C 38px, #505452 38px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
   z-index: 999;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .header-spacer {
@@ -62,8 +61,8 @@
 }
 
 .nav-sidebar.expanded {
-  width: 15%;
-  min-width: 200px;
+  width: 10.5%;
+  min-width: 140px;
 }
 
 /* Navigation Header */
@@ -192,7 +191,7 @@
 .main-content {
   flex: 1;
   transition: margin-left 0.3s ease;
-  padding: 20px;
+  padding: 0px 20px 0px 0px;
   overflow-x: hidden;
 }
 
@@ -201,7 +200,7 @@
 }
 
 .main-content.nav-expanded {
-  margin-left: 15%;
+  margin-left: 10.5%;
 }
 
 /* Responsive Design */
