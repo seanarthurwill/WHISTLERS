@@ -12,7 +12,6 @@ import OpenGames from '../games/OpenGames';
 
 function Dashboard() {
   const navItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: <DashboardIcon /> },
     { label: 'Games', href: '/dashboard/games', icon: <SportsIcon /> },    
     { label: 'Assignments', href: '/dashboard/assignments', icon: <AssignmentIcon /> },
     { label: 'Officials', href: '/dashboard/officials', icon: <PeopleIcon /> },

@@ -8,6 +8,7 @@ import ForgotPassword from './components/login/ForgotPassword';
 import ResetPassword from './components/login/ResetPassword';
 import Dashboard from './components/dashboard/Dashboard';
 import OpenGames from './components/games/OpenGames';
+import Assignments from './components/assignments/Assignments';
 import DashboardSummary from './components/dashboard/DashboardSummary';
 import './App.css';
 
@@ -26,6 +27,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />}>
               <Route index element={<DashboardSummary />} />
               <Route path="games" element={<OpenGames />} />
+              <Route path="assignments" element={<Assignments />} />
             </Route>
           </Routes>
         </div>
