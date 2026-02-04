@@ -15,6 +15,7 @@ function Dashboard() {
     { label: 'Games', href: '/dashboard/games', icon: <SportsIcon /> },    
     { label: 'Assignments', href: '/dashboard/assignments', icon: <AssignmentIcon /> },
     { label: 'Officials', href: '/dashboard/officials', icon: <PeopleIcon /> },
+    { label: 'Administration', href: '/dashboard/administration', icon: <BusinessIcon /> },
     { label: 'Settings', href: '/dashboard/settings', icon: <SettingsIcon /> },
   ];
 

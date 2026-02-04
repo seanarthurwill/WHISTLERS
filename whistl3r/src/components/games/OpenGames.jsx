@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
-import { Box, Typography, Paper, Button, Select, MenuItem, FormControl } from '@mui/material';
+import { Box, Typography, Paper, Button, Select, MenuItem, FormControl, Tooltip, IconButton } from '@mui/material';
+import { Info as InfoIcon } from '@mui/icons-material';
 import { useLoading } from '../../contexts/LoadingContext';
 import { formatTime12Hour } from '../../utils/timeFormatter';
 import ClaimGame from './ClaimGame';
@@ -20,6 +21,8 @@ function OpenGames() {
   const [userClaims, setUserClaims] = useState([]);
   const [allClaims, setAllClaims] = useState([]);
   const [gameView, setGameView] = useState('upcoming');
+  const [hasCreatePermission, setHasCreatePermission] = useState(false);
+  const [positionLookup, setPositionLookup] = useState({});
 
   const handleClaim = (row) => {
     setSelectedGameId(row.gameId);
@@ -43,6 +46,9 @@ function OpenGames() {
       const token = localStorage.getItem('accessToken');
       
       console.log('fetchUserClaims: Full user object', user);
+      
+      // Check if user has assignorId to show Create Game button
+      setHasCreatePermission(!!user.AssignorId);
       
       // The JWT uses 'OfficialId' claim - if not present, user is not an official
       const officialId = user.OfficialId;
@@ -72,7 +78,7 @@ function OpenGames() {
             'Authorization': `Bearer ${token}`
           }
         }).then(async res => {
-          console.log(`Claims API response for game ${gameId}:`, res.status, res.ok);
+         //console.log(`Claims API response for game ${gameId}:`, res.status, res.ok);
           if (res.ok) {
             const data = await res.json();
             console.log(`Claims data for game ${gameId}:`, data);
@@ -130,6 +136,9 @@ function OpenGames() {
         const data = await gamesResponse.json();
         setAllGames(data);
         setGames(data);
+        
+        // Build position name to ID lookup from game details
+        await buildPositionLookup(data);
       } else {
         setError('Failed to load games');
       }
@@ -138,6 +147,43 @@ function OpenGames() {
       setError('An error occurred while loading games');
     } finally {
       hideLoading();
+    }
+  };
+
+  const buildPositionLookup = async (gamesData) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const lookup = {};
+      
+      // Get unique game IDs
+      const uniqueGameIds = [...new Set(gamesData.map(g => g.gameId))];
+      
+      // Fetch game details for each game to get position data
+      const gameDetailsPromises = uniqueGameIds.slice(0, 10).map(gameId =>
+        fetch(`${API_BASE_URL}/games/${gameId}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        }).then(async res => {
+          if (res.ok) {
+            const gameDetail = await res.json();
+            if (gameDetail.openPositions && Array.isArray(gameDetail.openPositions)) {
+              gameDetail.openPositions.forEach(pos => {
+                // Create lookup key as "positionName" for easy matching
+                if (pos.positionName && pos.positionId) {
+                  const key = pos.positionName.toLowerCase().trim();
+                  lookup[key] = pos.positionId;
+                }
+              });
+            }
+          }
+          return null;
+        }).catch(() => null)
+      );
+      
+      await Promise.all(gameDetailsPromises);
+      setPositionLookup(lookup);
+      console.log('Position lookup built:', lookup);
+    } catch (err) {
+      console.error('Error building position lookup:', err);
     }
   };
 
@@ -216,9 +262,9 @@ function OpenGames() {
       headerName: 'Claim Status', 
       width: 120,
       valueGetter: (value, row) => {
-        console.log('Checking claim for game:', row.gameId, 'User claims:', userClaims.map(c => c.gameId));
+        //console.log('Checking claim for game:', row.gameId, 'User claims:', userClaims.map(c => c.gameId));
         const hasPendingClaim = userClaims.some(claim => {
-          console.log(`Comparing claim.gameId (${claim.gameId}, ${typeof claim.gameId}) === row.gameId (${row.gameId}, ${typeof row.gameId})`);
+          //console.log(`Comparing claim.gameId (${claim.gameId}, ${typeof claim.gameId}) === row.gameId (${row.gameId}, ${typeof row.gameId})`);
           return Number(claim.gameId) === Number(row.gameId);
         });
         return hasPendingClaim ? 'Pending' : 'Edit Claim';
@@ -271,8 +317,59 @@ function OpenGames() {
     },
     { 
       field: 'openPositions', 
-      headerName: 'OpenPosition', 
-      width: 130 
+      headerName: 'Open Positions',
+      width: 260,
+      renderHeader: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <span style={{ fontWeight: 'bold' }}>{params.colDef.headerName}</span>
+          <Tooltip 
+            title="Red indicates 3 or more claims, Blue indicates 1 or 2 claims, and Green indicates no claims"
+            placement="top"
+            arrow
+          >
+            <IconButton size="small" sx={{ padding: 0 }}>
+              <InfoIcon sx={{ fontSize: 16, color: '#666' }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+      renderCell: (params) => {
+        const positions = params.value ? params.value.split(',').map(p => p.trim()) : [];
+        
+        return (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+            {positions.map((position, index) => {
+              // Look up the positionId from the position name using our lookup table
+              const positionKey = position.toLowerCase().trim();
+              const positionId = positionLookup[positionKey];
+              
+              // Count claims for this specific position and game
+              const positionClaimCount = allClaims.filter(claim => {
+                const matchesGame = Number(claim.gameId) === Number(params.row.gameId);
+                const notWithdrawn = claim.claimStatus !== 'Withdrawn';
+                // Match by positionId if we have it
+                const matchesPosition = positionId ? Number(claim.positionId) === Number(positionId) : false;
+                
+                return matchesGame && notWithdrawn && matchesPosition;
+              }).length;
+              
+              // Determine color based on claim count
+              let color = '#3F9033'; // Green for 0 claims
+              if (positionClaimCount >= 3) {
+                color = '#A80000'; // Red for 3+ claims
+              } else if (positionClaimCount >= 1) {
+                color = '#0066CC'; // Blue for 1-2 claims
+              }
+              
+              return (
+                <span key={index} style={{ color, fontWeight: 'bold' }}>
+                  {position}{index < positions.length - 1 ? ',' : ''}
+                </span>
+              );
+            })}
+          </Box>
+        );
+      }
     },
     { 
       field: 'ageLevelName', 
@@ -321,7 +418,7 @@ function OpenGames() {
               minWidth: 180,
               height: 36,
               borderRadius: '16px',
-              fontFamily: "'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: 'rgba(255, 255, 255, 0.5)'
               },
@@ -356,7 +453,7 @@ function OpenGames() {
               minWidth: 150,
               height: 36,
               borderRadius: '16px',
-              fontFamily: "'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: 'rgba(255, 255, 255, 0.5)'
               },
@@ -408,6 +505,26 @@ function OpenGames() {
           className="open-games-datagrid"
         />
       </Paper>
+
+      {hasCreatePermission && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', marginRight: '24px' }}>
+          <Button
+            variant="contained"
+            sx={{
+              backgroundColor: '#3F9033',
+              '&:hover': { backgroundColor: '#5aa84a' },
+              borderRadius: '16px',
+              padding: '10px 30px',
+              fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+              textTransform: 'none',
+              fontSize: '16px',
+              fontWeight: '500'
+            }}
+          >
+            Create Game
+          </Button>
+        </Box>
+      )}
 
       <ClaimGame
         open={claimDrawerOpen}

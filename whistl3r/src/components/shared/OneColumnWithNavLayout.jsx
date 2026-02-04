@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { Menu, MenuItem } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import whistlersIcon from '../../assets/images/WHISTLERS_ICON_dark.png';
 import whistlersDarkLogo from '../../assets/images/WHISTLERS_LOGO_DARK.png';
+import rounderImage from '../../assets/images/rounder.png';
 import './OneColumnWithNavLayout.css';
 
 function OneColumnWithNavLayout({ children, navItems = [] }) {
@@ -13,12 +14,13 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
   const [avatarColor, setAvatarColor] = useState('#667eea');
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const open = Boolean(anchorEl);
 
   useEffect(() => {
     // Get user from localStorage
     const userStr = localStorage.getItem('user');
-    console.log('User string from localStorage:', userStr);
+    //console.log('User string from localStorage:', userStr);
     if (userStr) {
       try {
         const userData = JSON.parse(userStr);
@@ -105,6 +107,11 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
     <div className="layout-container">
       {/* Fixed Header Bar */}
       <header className={`layout-header ${isExpanded ? 'nav-expanded' : ''}`}>
+        <img 
+          src={rounderImage} 
+          alt="" 
+          className={`header-rounder ${isExpanded ? 'nav-expanded' : 'nav-collapsed'}`}
+        />
         <div className="header-spacer"></div>
         <div 
           className="user-avatar" 
@@ -148,18 +155,21 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
         </div>
         
         <ul className="nav-list">
-          {navItems.map((item, index) => (
-            <li key={index} className="nav-item">
-              <a 
-                href={item.href} 
-                className="nav-link"
-                title={item.label}
-              >
-                {item.icon && <span className="nav-icon">{item.icon}</span>}
-                {isExpanded && <span className="nav-label">{item.label}</span>}
-              </a>
-            </li>
-          ))}
+          {navItems.map((item, index) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <li key={index} className="nav-item">
+                <a 
+                  href={item.href} 
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  title={item.label}
+                >
+                  {item.icon && <span className="nav-icon">{item.icon}</span>}
+                  {isExpanded && <span className="nav-label">{item.label}</span>}
+                </a>
+              </li>
+            );
+          })}
         </ul>
 
         {/* Toggle Button at Bottom */}

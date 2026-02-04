@@ -44,7 +44,7 @@ namespace UsersService.Services
     public interface IJwtService
     {
         /// <summary>Creates JWT access token with user info and roles</summary>
-        string GenerateAccessToken(User user, List<Permission> permissions, int? officialId = null);
+        string GenerateAccessToken(User user, List<Permission> permissions, int? officialId = null, int? assignorId = null, int? mentorId = null, int? coachId = null, int? parentId = null);
         /// <summary>Generates cryptographically secure refresh token</summary>
         string GenerateRefreshToken();
         /// <summary>Extracts claims principal from expired token (for refresh flow)</summary>
@@ -169,7 +169,7 @@ public class UserSession
         /// <summary>
         /// Generates JWT access token containing user information and roles
         /// </summary>
-        public string GenerateAccessToken(User user, List<Permission> permissions, int? officialId = null)
+        public string GenerateAccessToken(User user, List<Permission> permissions, int? officialId = null, int? assignorId = null, int? mentorId = null, int? coachId = null, int? parentId = null)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_secretKey); // Convert secret to bytes
@@ -184,11 +184,27 @@ public class UserSession
                 new Claim("IsActive", user.IsActive.ToString()) // Account status
             };
 
-            // Add OfficialId if provided
             if (officialId.HasValue)
             {
                 claims.Add(new Claim("OfficialId", officialId.Value.ToString()));
             }
+            if (assignorId.HasValue)
+            {
+                claims.Add(new Claim("AssignorId", assignorId.Value.ToString()));
+            }
+            if (mentorId.HasValue)
+            {
+                claims.Add(new Claim("MentorId", mentorId.Value.ToString()));
+            }
+            if (coachId.HasValue)
+            {
+                claims.Add(new Claim("CoachId", coachId.Value.ToString()));
+            }
+            if (parentId.HasValue)
+            {
+                claims.Add(new Claim("ParentId", parentId.Value.ToString()));
+            }
+
 
             // Add role claims for authorization
             foreach (var permission in permissions)
@@ -395,8 +411,24 @@ public class UserSession
                     .SqlQuery<int?>($"SELECT official_id AS \"Value\" FROM officials WHERE user_id = {user.UserId}")
                     .FirstOrDefaultAsync();
 
+                var assignorId = await _context.Database
+                    .SqlQuery<int?>($"SELECT assignor_id AS \"Value\" FROM assignors WHERE user_id = {user.UserId}")
+                    .FirstOrDefaultAsync();
+
+                var mentorId = await _context.Database
+                    .SqlQuery<int?>($"SELECT mentor_id AS \"Value\" FROM mentors WHERE user_id = {user.UserId}")
+                    .FirstOrDefaultAsync();
+
+                var coachId = await _context.Database
+                    .SqlQuery<int?>($"SELECT coach_id AS \"Value\" FROM coaches WHERE user_id = {user.UserId}")
+                    .FirstOrDefaultAsync();
+
+                var parentId = await _context.Database
+                    .SqlQuery<int?>($"SELECT parent_id AS \"Value\" FROM parents WHERE user_id = {user.UserId}")
+                    .FirstOrDefaultAsync();
+
                 // Generate JWT access token and refresh token
-                var accessToken = _jwtService.GenerateAccessToken(user, permissions, officialId);
+                var accessToken = _jwtService.GenerateAccessToken(user, permissions, officialId, assignorId, mentorId, coachId, parentId);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
                 // Update last login timestamp

@@ -12,7 +12,7 @@
   left: 0;
   right: 0;
   height: 54px;
-  background: linear-gradient(to bottom, #0B0D0C 38px, #505452 38px);
+  background: linear-gradient(to bottom, #0B0D0C 31px, #505452 31px);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -22,6 +22,24 @@
 
 .header-spacer {
   flex: 1;
+}
+
+.header-rounder {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 54px;
+  width: auto;
+  transition: left 0.3s ease;
+  z-index: 1;
+}
+
+.header-rounder.nav-expanded {
+  left: 10.5%;
+}
+
+.header-rounder.nav-collapsed {
+  left: 60px;
 }
 
 .user-avatar {
@@ -100,7 +118,7 @@
   color: #ffffff;
   cursor: pointer;
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,7 +138,7 @@
   color: #ffffff;
   cursor: pointer;
   padding: 8px;
-  border-radius: 4px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -163,7 +181,7 @@
 
 .nav-link:active,
 .nav-link.active {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: #A80000;
 }
 
 .nav-icon {

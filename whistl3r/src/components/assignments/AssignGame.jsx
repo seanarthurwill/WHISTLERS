@@ -5,9 +5,9 @@ import {
   Box,
   Typography,
   Button,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
+  Select,
+  MenuItem,
+  FormControl,
   Divider,
   IconButton,
   Alert,
@@ -23,8 +23,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
   const { showLoading, hideLoading } = useLoading();
   const [gameDetails, setGameDetails] = useState(null);
-  const [selectedPositions, setSelectedPositions] = useState([]);
-  const [userClaims, setUserClaims] = useState([]);
+  const [allClaims, setAllClaims] = useState([]);
+  const [officials, setOfficials] = useState({});
+  const [positionAssignments, setPositionAssignments] = useState({});
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -32,24 +33,24 @@ function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
   useEffect(() => {
     if (open && gameId) {
       fetchGameDetails();
-      fetchUserClaimsForGame();
+      fetchAllClaimsForGame();
     } else {
       // Reset state when drawer closes
       setGameDetails(null);
-      setSelectedPositions([]);
-      setUserClaims([]);
+      setAllClaims([]);
+      setOfficials({});
+      setPositionAssignments({});
       setError(null);
       setSuccess(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, gameId]);
 
-  const fetchUserClaimsForGame = async () => {
+  const fetchAllClaimsForGame = async () => {
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
       const token = localStorage.getItem('accessToken');
       
-      if (!user.OfficialId || !token) {
+      if (!token) {
         return;
       }
 
@@ -61,15 +62,61 @@ function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
 
       if (response.ok) {
         const claims = await response.json();
-        // Filter to only this user's pending claims
-        const myClaims = claims.filter(
-          claim => Number(claim.officialId) === Number(user.OfficialId) && claim.claimStatus != 'Withdrawn'
-        );
-        console.log('Fetched user claims for game:', myClaims);
-        setUserClaims(myClaims);
+        // Filter out withdrawn claims
+        const activeClaims = claims.filter(claim => claim.claimStatus !== 'Withdrawn');
+        console.log('Fetched all active claims for game:', activeClaims);
+        setAllClaims(activeClaims);
+        
+        // Fetch official details for all claiming officials
+        const uniqueOfficialIds = [...new Set(activeClaims.map(claim => claim.officialId))];
+        await fetchOfficials(uniqueOfficialIds);
       }
     } catch (err) {
-      console.error('Error fetching user claims:', err);
+      console.error('Error fetching claims:', err);
+    }
+  };
+
+  const fetchOfficials = async (officialIds) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      
+      if (!token || officialIds.length === 0) {
+        return;
+      }
+
+      // Fetch each official's user details using the new endpoint
+      const officialPromises = officialIds.map(officialId =>
+        fetch(`${API_BASE_URL}/users/official/${officialId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }).then(async res => {
+          if (res.ok) {
+            const user = await res.json();
+            return { officialId, user };
+          }
+          console.error(`Failed to fetch user for official ${officialId}`);
+          return { officialId, user: null };
+        }).catch(err => {
+          console.error(`Error fetching user for official ${officialId}:`, err);
+          return { officialId, user: null };
+        })
+      );
+
+      const results = await Promise.all(officialPromises);
+      
+      // Create a lookup object by officialId
+      const officialsLookup = {};
+      results.forEach(({ officialId, user }) => {
+        if (user) {
+          officialsLookup[officialId] = user;
+        }
+      });
+      
+      console.log('Officials lookup created:', officialsLookup);
+      setOfficials(officialsLookup);
+    } catch (err) {
+      console.error('Error fetching officials:', err);
     }
   };
 
@@ -92,79 +139,18 @@ function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
     }
   };
 
-  const handlePositionToggle = (position) => {
-    setSelectedPositions(prev => {
-      const exists = prev.find(p => p.positionId === position.positionId);
-      if (exists) {
-        return prev.filter(p => p.positionId !== position.positionId);
-      } else {
-        return [...prev, position];
-      }
-    });
+  const handlePositionAssignment = (positionId, officialId) => {
+    setPositionAssignments(prev => ({
+      ...prev,
+      [positionId]: officialId
+    }));
   };
 
-  const handleUnclaim = async (position) => {
-    setError(null);
-    console.log('Attempting to unclaim position:', position);
-    const claim = userClaims.find(c => Number(c.positionId) === Number(position.positionId));
-    console.log('Found claim to delete:', claim);
-    if (!claim || !claim.gameClaimId) {
-      setError('Could not find claim to delete');
-      return;
-    }
-
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const token = localStorage.getItem('accessToken');
-    
-    if (!token) {
-      setError('Authentication token not found. Please log in again.');
-      return;
-    }
-
-    if (!user.OfficialId) {
-      setError('User ID not found.');
-      return;
-    }
-
-    try {
-      showLoading();
-      const response = await fetch(`${API_BASE_URL}/claims/${claim.gameClaimId}?deletedBy=${user.OfficialId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok || response.status === 204) {
-        // Remove from selectedPositions if it's there
-        setSelectedPositions(prev => prev.filter(p => p.positionId !== position.positionId));
-        // Refresh claims to update UI
-        await fetchUserClaimsForGame();
-        if (onClaimSuccess) {
-          onClaimSuccess();
-        }
-      } else {
-        setError('Failed to unclaim position');
-      }
-    } catch (err) {
-      console.error('Error unclaiming position:', err);
-      setError('An error occurred while unclaiming the position');
-    } finally {
-      hideLoading();
-    }
-  };
-
-  const handleSubmitClaim = async () => {
-    if (selectedPositions.length === 0) {
-      setError('Please select at least one position to claim');
-      return;
-    }
-
+  const handleSubmitAssignments = async () => {
     setSubmitting(true);
     setError(null);
     
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
       const token = localStorage.getItem('accessToken');
       
       if (!token) {
@@ -173,43 +159,17 @@ function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
         return;
       }
 
-      if (!user.OfficialId) {
-        setError('Only officials can claim games.');
-        setSubmitting(false);
-        return;
-      }
-
-      // Submit claim for each selected position
-      const claimPromises = selectedPositions.map(position => 
-        fetch(`${API_BASE_URL}/claims`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            gameId: gameId,
-            officialId: user.OfficialId,
-            positionId: position.positionId
-          })
-        })
-      );
-
-      const results = await Promise.all(claimPromises);
-      const allSuccessful = results.every(r => r.ok);
-
-      if (allSuccessful) {
-        // Close drawer and refresh grid immediately
-        onClose();
-        if (onClaimSuccess) {
-          onClaimSuccess();
-        }
-      } else {
-        setError('Failed to claim one or more positions');
+      // TODO: Implement assignment submission to backend
+      console.log('Position assignments:', positionAssignments);
+      
+      // Close drawer and refresh grid
+      onClose();
+      if (onClaimSuccess) {
+        onClaimSuccess();
       }
     } catch (err) {
-      console.error('Error submitting claim:', err);
-      setError('An error occurred while submitting your claim');
+      console.error('Error submitting assignments:', err);
+      setError('An error occurred while submitting assignments');
     } finally {
       setSubmitting(false);
     }
@@ -234,7 +194,7 @@ function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
         {/* Header */}
         <Box className="claim-game-header">
           <Typography variant="h6" className="claim-game-title">
-            Claim Game Position
+            Assign Game
           </Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
@@ -286,66 +246,69 @@ function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
               {/* Position Selection */}
               <Box className="claim-game-positions">
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Select Position(s) to Claim
+                  Assign Officials to Positions
                 </Typography>
                 
                 {!hasOpenPositions ? (
                   <Alert severity="info">
-                    No open positions available for this game.
+                    No positions available for this game.
                   </Alert>
                 ) : (
-                  <FormGroup>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {openPositions.map((position) => {
-                      const hasClaim = userClaims.some(claim => Number(claim.positionId) === Number(position.positionId));
+                      // Get all claims for this position
+                      const positionClaims = allClaims.filter(
+                        claim => Number(claim.positionId) === Number(position.positionId)
+                      );
+                      
                       return (
-                        <Box key={position.positionId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={hasClaim || selectedPositions.some(p => p.positionId === position.positionId)}
-                                onChange={() => handlePositionToggle(position)}
-                                disabled={hasClaim}
-                                sx={{
-                                  color: '#667eea',
-                                  '&.Mui-checked': {
-                                    color: '#667eea'
-                                  }
-                                }}
-                              />
-                            }
-                            label={
-                              <Box>
-                                <Typography variant="body1">
-                                  {position.positionName}
-                                  {hasClaim && (
-                                    <Typography component="span" sx={{ ml: 1, color: '#FF5E00', fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                      (Claimed)
-                                    </Typography>
-                                  )}
-                                </Typography>
-                                {position.isRequired && (
-                                  <Typography variant="caption" color="error">
-                                    Required Position
-                                  </Typography>
-                                )}
-                              </Box>
-                            }
-                          />
-                          {hasClaim && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              color="error"
-                              onClick={() => handleUnclaim(position)}
-                              sx={{ ml: 'auto' }}
+                        <Box key={position.positionId} sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                            {position.positionName}
+                            {position.isRequired && (
+                              <Typography component="span" sx={{ ml: 1, color: 'error.main', fontSize: '0.875rem' }}>
+                                (Required)
+                              </Typography>
+                            )}
+                          </Typography>
+                          <FormControl fullWidth size="small">
+                            <Select
+                              value={positionAssignments[position.positionId] || ''}
+                              onChange={(e) => handlePositionAssignment(position.positionId, e.target.value)}
+                              displayEmpty
+                              sx={{
+                                borderRadius: '16px',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderRadius: '16px'
+                                }
+                              }}
                             >
-                              Unclaim
-                            </Button>
+                              <MenuItem value="">
+                                <em>Select Official</em>
+                              </MenuItem>
+                              {positionClaims.map((claim) => {
+                                const official = officials[claim.officialId];
+                                console.log('Rendering claim:', claim.officialId, 'Official data:', official);
+                                const officialName = official 
+                                  ? `${official.firstName || official.FirstName || ''} ${official.lastName || official.LastName || ''}`.trim()
+                                  : `Official ID: ${claim.officialId}`;
+                                return (
+                                  <MenuItem key={claim.gameClaimId} value={claim.officialId}>
+                                    {officialName || `Official ID: ${claim.officialId}`}
+                                  </MenuItem>
+                                );
+                              })}
+                            </Select>
+                          </FormControl>
+                          {positionClaims.length === 0 && (
+                            <Typography variant="caption" color="text.secondary">
+                              No claims for this position
+                            </Typography>
                           )}
                         </Box>
                       );
                     })}
-                  </FormGroup>
+                  </Box>
                 )}
               </Box>
 
@@ -377,14 +340,14 @@ function AssignGame({ open, onClose, gameId, onClaimSuccess }) {
           </Button>
           <Button
             variant="contained"
-            onClick={handleSubmitClaim}
-            disabled={!hasOpenPositions || selectedPositions.length === 0 || submitting}
+            onClick={handleSubmitAssignments}
+            disabled={submitting}
             sx={{
               backgroundColor: '#667eea',
               '&:hover': { backgroundColor: '#5568d3' }
             }}
           >
-            {submitting ? <CircularProgress size={24} /> : `Claim ${selectedPositions.length > 0 ? `(${selectedPositions.length})` : ''}`}
+            {submitting ? <CircularProgress size={24} /> : 'Assign Officials'}
           </Button>
         </Box>
       </Box>

@@ -12,6 +12,7 @@ namespace UsersService.Services
         Task<User?> GetUserByIdAsync(int id);
         Task<User?> GetUserByEmailAsync(string email);
         Task<User?> GetUserByResetGuidAsync(string resetGuid);
+        Task<User?> GetUserByOfficialIdAsync(int officialId);
         Task<User> CreateUserAsync(User user);
         Task<User?> UpdateUserAsync(int id, User user);
         Task<bool> DeleteUserAsync(int id);
@@ -45,6 +46,7 @@ namespace UsersService.Services
         {
             return await _context.Users
                 .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
                 .OrderBy(u => u.Email)
                 .ToListAsync();
         }
@@ -53,6 +55,7 @@ namespace UsersService.Services
         {
             return await _context.Users
                 .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.UserId == id);
         }
 
@@ -60,6 +63,7 @@ namespace UsersService.Services
         {
             return await _context.Users
                 .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
@@ -72,6 +76,19 @@ namespace UsersService.Services
                 .FirstOrDefaultAsync(u => u.ResetPasswordGuid == guid);
         }
 
+        public async Task<User?> GetUserByOfficialIdAsync(int officialId)
+        {
+            var official = await _context.Officials
+                .FirstOrDefaultAsync(o => o.OfficialId == officialId);
+            
+            if (official == null) return null;
+
+            return await _context.Users
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.UserId == official.UserId);
+        }
+
         public async Task<User> CreateUserAsync(User user)
         {
             user.CreatedAt = DateTime.UtcNow;
@@ -82,15 +99,17 @@ namespace UsersService.Services
 
         public async Task<User?> UpdateUserAsync(int id, User user)
         {
-            var existing = await _context.Users.FindAsync(id);
+            var existing = await _context.Users
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.UserId == id);
+                
             if (existing == null) return null;
 
             existing.Email = user.Email;
-            existing.PasswordHash = user.PasswordHash;
             existing.FirstName = user.FirstName;
             existing.LastName = user.LastName;
             existing.Phone = user.Phone;
-            existing.UserRoles = user.UserRoles;
             existing.TenantId = user.TenantId;
             existing.DateOfBirth = user.DateOfBirth;
             existing.UserType = user.UserType;
@@ -98,7 +117,94 @@ namespace UsersService.Services
             existing.ResetPasswordGuid = user.ResetPasswordGuid;
             existing.LastLogin = user.LastLogin;
 
+            // Update user roles - remove existing and add new ones
+            _context.UserRoles.RemoveRange(existing.UserRoles);
+            
+            foreach (var userRole in user.UserRoles)
+            {
+                _context.UserRoles.Add(new UserRole
+                {
+                    UserId = id,
+                    RoleId = userRole.RoleId
+                });
+            }
+
             await _context.SaveChangesAsync();
+
+            // Only process role-based table creation if user is active
+            if (existing.IsActive)
+            {
+                // Load role names for checking
+                var userWithRoles = await _context.Users
+                    .Include(u => u.UserRoles)
+                        .ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.UserId == id);
+
+                if (userWithRoles != null)
+                {
+                    var roleNames = userWithRoles.UserRoles
+                        .Select(ur => ur.Role.RoleName)
+                        .ToList();
+
+                    // Check and create Official record
+                    if (roleNames.Contains("Official", StringComparer.OrdinalIgnoreCase))
+                    {
+                        var officialExists = await _context.Officials
+                            .AnyAsync(o => o.UserId == id);
+                        if (!officialExists)
+                        {
+                            _context.Officials.Add(new Official { UserId = id });
+                        }
+                    }
+
+                    // Check and create Assignor record
+                    if (roleNames.Contains("Assignor", StringComparer.OrdinalIgnoreCase))
+                    {
+                        var assignorExists = await _context.Assignors
+                            .AnyAsync(a => a.UserId == id);
+                        if (!assignorExists)
+                        {
+                            _context.Assignors.Add(new Assignor { UserId = id, IsSuperAdmin = false });
+                        }
+                    }
+
+                    // Check and create Coach record
+                    if (roleNames.Contains("Coach", StringComparer.OrdinalIgnoreCase))
+                    {
+                        var coachExists = await _context.Coaches
+                            .AnyAsync(c => c.UserId == id);
+                        if (!coachExists)
+                        {
+                            _context.Coaches.Add(new Coach { UserId = id });
+                        }
+                    }
+
+                    // Check and create Mentor record
+                    if (roleNames.Contains("Mentor", StringComparer.OrdinalIgnoreCase))
+                    {
+                        var mentorExists = await _context.Mentors
+                            .AnyAsync(m => m.UserId == id);
+                        if (!mentorExists)
+                        {
+                            _context.Mentors.Add(new Mentor { UserId = id });
+                        }
+                    }
+
+                    // Check and create Parent record
+                    if (roleNames.Contains("Parent", StringComparer.OrdinalIgnoreCase))
+                    {
+                        var parentExists = await _context.Parents
+                            .AnyAsync(p => p.UserId == id);
+                        if (!parentExists)
+                        {
+                            _context.Parents.Add(new Parent { UserId = id });
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
+            }
+
             return existing;
         }
 

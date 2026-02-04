@@ -90,8 +90,8 @@ namespace UsersService.Models
         public int RoleId { get; set; }
 
         // Navigation properties
-        public User User { get; set; } = null!;
-        public Role Role { get; set; } = null!;
+        public User? User { get; set; }
+        public Role? Role { get; set; }
     }
 
     [Table("permission")]
@@ -108,6 +108,58 @@ namespace UsersService.Models
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
+    }
 
+    [Table("officials")]
+    public class Official
+    {
+        [Column("official_id")]
+        public int OfficialId { get; set; }
+        
+        [Column("user_id")]
+        public int UserId { get; set; }
+    }
+
+    [Table("assignors")]
+    public class Assignor
+    {
+        [Column("assignor_id")]
+        public int AssignorId { get; set; }
+        
+        [Column("user_id")]
+        public int UserId { get; set; }
+        
+        [Column("is_super_admin")]
+        public bool IsSuperAdmin { get; set; } = false;
+    }
+
+    [Table("coaches")]
+    public class Coach
+    {
+        [Column("coach_id")]
+        public int CoachId { get; set; }
+        
+        [Column("user_id")]
+        public int UserId { get; set; }
+    }
+
+    [Table("mentors")]
+    public class Mentor
+    {
+        [Column("mentor_id")]
+        public int MentorId { get; set; }
+        
+        [Column("user_id")]
+        public int UserId { get; set; }
+    }
+
+    [Table("parents")]
+    public class Parent
+    {
+        [Column("parent_id")]
+        public int ParentId { get; set; }
+        
+        [Column("user_id")]
+        public int UserId { get; set; }
     }
 }

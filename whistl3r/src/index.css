@@ -1,7 +1,7 @@
-@import url('https://fonts.cdnfonts.com/css/lil-grotesk');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -30,6 +30,11 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow-x: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 h1 {
@@ -38,7 +43,7 @@ h1 {
 }
 
 button {
-  border-radius: 8px;
+  border-radius: 16px;
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
@@ -56,6 +61,23 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
+/* Input and textarea elements */
+input,
+textarea {
+  border-radius: 16px !important;
+}
+
+/* MUI Button components */
+.MuiButton-root {
+  border-radius: 16px !important;
+}
+
+/* MUI TextField and Input components */
+.MuiTextField-root .MuiOutlinedInput-root,
+.MuiInputBase-root {
+  border-radius: 16px !important;
+}
+
 /* MUI Select dropdown border radius */
 .MuiSelect-select {
   border-radius: 16px !important;
@@ -68,6 +90,63 @@ button:focus-visible {
 /* MUI DataGrid and Box border radius */
 .MuiDataGrid-root {
   border-radius: 16px !important;
+  border: none;
+  background-color: #fff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.9em;
+}
+
+.MuiDataGrid-cell {
+  color: #000;
+  border-color: rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.9em;
+}
+
+.MuiDataGrid-cell:focus,
+.MuiDataGrid-cell:focus-within {
+  outline: none !important;
+}
+
+.MuiDataGrid-row {
+  background-color: #fff;
+}
+
+.MuiDataGrid-row:hover {
+  background-color: rgba(102, 126, 234, 0.1);
+}
+
+.MuiDataGrid-columnHeaders {
+  color: #000;
+  border-color: rgba(0, 0, 0, 0.2);
+  background-color: #409032 !important;
+}
+
+.MuiDataGrid-columnHeader {
+  color: #000;
+  font-size: 0.9em;
+}
+
+.MuiDataGrid-columnHeaderTitle {
+  font-weight: bold;
+  color: #000;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.9em;
+}
+
+.MuiDataGrid-footerContainer {
+  background-color: #fff;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #000;
+}
+
+.MuiTablePagination-root {
+  color: #000;
+}
+
+.MuiDataGrid-root .MuiIconButton-root {
+  color: #000;
 }
 
 .MuiBox-root {

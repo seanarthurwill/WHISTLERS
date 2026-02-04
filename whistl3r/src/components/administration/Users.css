@@ -1,0 +1,33 @@
+.users-container {
+  padding: 20px;
+  max-width: 100%;
+}
+
+.users-title {
+  margin-bottom: 30px;
+  color: #0B0D0C;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600;
+}
+
+.users-error {
+  padding: 20px;
+  margin-bottom: 20px;
+  background-color: #ffebee;
+  border-radius: 16px;
+}
+
+.users-grid-container {
+  height: calc(100% - 120px);
+  width: calc(100% - 48px);
+  margin: 0 24px;
+  background-color: #505452 !important;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  overflow: hidden;
+}
+
+.users-datagrid {
+  height: 100%;
+  width: 100%;
+}

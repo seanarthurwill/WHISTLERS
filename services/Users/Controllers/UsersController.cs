@@ -38,6 +38,14 @@ namespace UsersService.Controllers
             return Ok(user);
         }
 
+        [HttpGet("official/{officialId}")]
+        public async Task<ActionResult<User>> GetByOfficialId(int officialId)
+        {
+            var user = await _userService.GetUserByOfficialIdAsync(officialId);
+            if (user == null) return NotFound();
+            return Ok(user);
+        }
+
         [HttpPost]
         public async Task<ActionResult<User>> Create([FromBody] User user)
         {

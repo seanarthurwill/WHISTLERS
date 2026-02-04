@@ -10,6 +10,11 @@ namespace UsersService.Data
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<UserRole> UserRoles { get; set; } = null!;
+        public DbSet<Official> Officials { get; set; } = null!;
+        public DbSet<Assignor> Assignors { get; set; } = null!;
+        public DbSet<Coach> Coaches { get; set; } = null!;
+        public DbSet<Mentor> Mentors { get; set; } = null!;
+        public DbSet<Parent> Parents { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

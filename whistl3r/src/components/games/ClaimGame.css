@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .claim-game-header {
@@ -14,7 +14,7 @@
 }
 
 .claim-game-title {
-  font-family: 'Lil Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   font-weight: bold !important;
   color: #333;
 }
