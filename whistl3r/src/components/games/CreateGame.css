@@ -1,0 +1,12 @@
+.create-game-drawer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.create-game-form {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0;
+}

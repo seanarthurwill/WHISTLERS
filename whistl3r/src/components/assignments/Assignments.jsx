@@ -1,7 +1,15 @@
-import { useState, useEffect } from 'react';
-import { DataGrid } from '@mui/x-data-grid';
-import { Box, Typography, Paper, Button, Select, MenuItem, FormControl, IconButton, Collapse } from '@mui/material';
-import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getExpandedRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+} from '@tanstack/react-table';
+import { Box, Typography, Paper, Button, Select, MenuItem, FormControl, IconButton } from '@mui/material';
+import { KeyboardArrowDown, KeyboardArrowRight, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useLoading } from '../../contexts/LoadingContext';
 import { formatTime12Hour } from '../../utils/timeFormatter';
 import ClaimGame from './AssignGame';
@@ -22,7 +30,8 @@ function Assignments() {
   const [allClaims, setAllClaims] = useState([]);
   const [gameView, setGameView] = useState('upcoming');
   const [gameDetails, setGameDetails] = useState({});
-  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [officials, setOfficials] = useState({});
+  const [positionAssignments, setPositionAssignments] = useState({});
 
   const handleClaim = (row) => {
     setSelectedGameId(row.gameId);
@@ -30,7 +39,6 @@ function Assignments() {
   };
 
   const handleClaimSuccess = () => {
-    // Refresh games list after successful claim
     fetchGames();
   };
 
@@ -39,72 +47,86 @@ function Assignments() {
     setSelectedGameId(null);
   };
 
+  const handleAssignmentChange = (gameId, positionId, officialId) => {
+    const key = `${gameId}-${positionId}`;
+    setPositionAssignments(prev => ({
+      ...prev,
+      [key]: officialId
+    }));
+  };
+
+  const handleAssignPosition = async (gameId, positionId) => {
+    const key = `${gameId}-${positionId}`;
+    const selectedOfficialId = positionAssignments[key];
+
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
+
+      // TODO: Replace with actual API endpoint for assignments
+      // If "open" is selected, clear the assignment
+      if (!selectedOfficialId || selectedOfficialId === 'open') {
+        console.log(`Clearing assignment for game ${gameId}, position ${positionId}`);
+        // API call to clear assignment would go here
+      } else {
+        console.log(`Assigning official ${selectedOfficialId} to game ${gameId}, position ${positionId}`);
+        // API call to assign official would go here
+      }
+
+      // Refresh games data after assignment
+      await fetchGames();
+    } catch (err) {
+      console.error('Error assigning position:', err);
+      setError('Failed to assign position');
+    }
+  };
+
   const fetchUserClaims = async () => {
     try {
-      //console.log('fetchUserClaims: Starting...');
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const token = localStorage.getItem('accessToken');
       
-      //console.log('fetchUserClaims: Full user object', user);
-      
-      // The JWT uses 'OfficialId' claim - if not present, user is not an official
       const officialId = user.OfficialId;
-      //console.log('fetchUserClaims: Extracted officialId:', officialId);
       
       if (!officialId || !token) {
-        //console.log('fetchUserClaims: No officialId or token, returning empty array');
         return [];
       }
 
-      // Fetch all games to get their IDs, then get claims for each
       const gamesResponse = await fetch(`${API_BASE_URL}/games/details-report`);
       if (!gamesResponse.ok) {
-        //console.log('fetchUserClaims: Games fetch failed');
         return [];
       }
       
       const gamesData = await gamesResponse.json();
       const uniqueGameIds = [...new Set(gamesData.map(g => g.gameId))];
       
-      //console.log('fetchUserClaims: Fetching claims for games:', uniqueGameIds);
-      
-      // Fetch claims for all games
       const claimsPromises = uniqueGameIds.map(gameId =>
         fetch(`${API_BASE_URL}/claims/game/${gameId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         }).then(async res => {
-          //console.log(`Claims API response for game ${gameId}:`, res.status, res.ok);
           if (res.ok) {
             const data = await res.json();
-            //console.log(`Claims data for game ${gameId}:`, data);
             return data;
           }
-          //console.log(`No claims for game ${gameId}`);
           return [];
-        }).catch(err => {
-          console.error(`Error fetching claims for game ${gameId}:`, err);
-          return [];
-        })
+        }).catch(() => [])
       );
       
       const allClaims = await Promise.all(claimsPromises);
-      console.log('All claims arrays:', allClaims);
       const flatClaims = allClaims.flat();
       
-      console.log('All flat claims:', flatClaims);
-      
-      // Store all claims
       setAllClaims(flatClaims);
       
-      // Filter to only this user's pending claims
+      // Fetch official details for all claiming officials
+      const uniqueOfficialIds = [...new Set(flatClaims.map(claim => claim.officialId))];
+      await fetchOfficials(uniqueOfficialIds);
+      
       const userPendingClaims = flatClaims.filter(
         claim => Number(claim.officialId) === Number(officialId) && claim.claimStatus === 'Pending'
       );
-      
-      console.log('User pending claims:', userPendingClaims);
-      console.log('OfficialId for comparison:', officialId);
       
       setUserClaims(userPendingClaims);
       return userPendingClaims;
@@ -114,8 +136,44 @@ function Assignments() {
     }
   };
 
+  const fetchOfficials = async (officialIds) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      
+      if (!token || officialIds.length === 0) {
+        return;
+      }
+
+      const officialPromises = officialIds.map(officialId =>
+        fetch(`${API_BASE_URL}/users/official/${officialId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }).then(async res => {
+          if (res.ok) {
+            const user = await res.json();
+            return { officialId, user };
+          }
+          return { officialId, user: null };
+        }).catch(() => ({ officialId, user: null }))
+      );
+
+      const results = await Promise.all(officialPromises);
+      
+      const officialsLookup = {};
+      results.forEach(({ officialId, user }) => {
+        if (user) {
+          officialsLookup[officialId] = user;
+        }
+      });
+      
+      setOfficials(officialsLookup);
+    } catch (err) {
+      console.error('Error fetching officials:', err);
+    }
+  };
+
   const fetchGames = async () => {
-    // Check if user is an official before loading games
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     if (!user.OfficialId) {
       setError('Only officials can view and claim games');
@@ -133,8 +191,6 @@ function Assignments() {
         const data = await gamesResponse.json();
         setAllGames(data);
         setGames(data);
-        
-        // Fetch details for each game to get positions
         fetchAllGameDetails(data);
       } else {
         setError('Failed to load games');
@@ -152,24 +208,17 @@ function Assignments() {
     if (!token) return;
 
     const uniqueGameIds = [...new Set(gamesData.map(g => g.gameId))];
-    console.log('Fetching details for games:', uniqueGameIds);
     
     const detailsPromises = uniqueGameIds.map(gameId =>
       fetch(`${API_BASE_URL}/games/${gameId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       }).then(async res => {
-        console.log(`Game ${gameId} details response status:`, res.status);
         if (res.ok) {
           const detail = await res.json();
-          console.log(`Game ${gameId} details:`, detail);
-          console.log(`Game ${gameId} openPositions:`, detail.openPositions);
           return { gameId, detail };
         }
         return { gameId, detail: null };
-      }).catch(err => {
-        console.error(`Error fetching game ${gameId}:`, err);
-        return { gameId, detail: null };
-      })
+      }).catch(() => ({ gameId, detail: null }))
     );
 
     const results = await Promise.all(detailsPromises);
@@ -180,7 +229,6 @@ function Assignments() {
       }
     });
     
-    console.log('Complete game details lookup:', detailsLookup);
     setGameDetails(detailsLookup);
   };
 
@@ -206,16 +254,12 @@ function Assignments() {
     if (selectedSport === 'all') {
       setGames(allGames);
     } else {
-      // Find the selected sport name
       const selectedSportObj = sports.find(s => s.sportId === selectedSport);
       const selectedSportName = selectedSportObj?.sportName;
-      
-      console.log('Selected sport name:', selectedSportName);
       
       const filtered = allGames.filter(game => {
         return game.sportName === selectedSportName;
       });
-      console.log('Filtered games:', filtered);
       setGames(filtered);
     }
   }, [selectedSport, allGames, sports]);
@@ -228,161 +272,154 @@ function Assignments() {
     setGameView(event.target.value);
   };
 
-  const toggleRowExpansion = (gameId) => {
-    setExpandedRows(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(gameId)) {
-        newSet.delete(gameId);
-      } else {
-        newSet.add(gameId);
-      }
-      return newSet;
-    });
-  };
-
-  const columns = [
+  const columns = useMemo(() => [
     {
-      field: 'expand',
-      headerName: '',
-      width: 50,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        const details = gameDetails[params.row.gameId];
+      id: 'expander',
+      header: () => null,
+      cell: ({ row }) => {
+        const details = gameDetails[row.original.gameId];
         const hasPositions = details?.openPositions && details.openPositions.length > 0;
         
         if (!hasPositions) return null;
         
-        const isExpanded = expandedRows.has(params.row.gameId);
         return (
           <IconButton
             size="small"
-            onClick={() => toggleRowExpansion(params.row.gameId)}
+            onClick={row.getToggleExpandedHandler()}
             sx={{ padding: '4px' }}
           >
-            {isExpanded ? <KeyboardArrowDown /> : <KeyboardArrowRight />}
+            {row.getIsExpanded() ? <KeyboardArrowDown /> : <KeyboardArrowRight />}
           </IconButton>
         );
-      }
+      },
+      size: 50,
     },
     {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 120,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(params.row.gameId));
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(row.original.gameId));
         return (
           <Button
             variant="contained"
             size="small"
-            onClick={() => handleClaim(params.row)}
+            onClick={() => handleClaim(row.original)}
             sx={{
               backgroundColor: hasPendingClaim ? '#FF5E00' : '#3F9033',
               '&:hover': { backgroundColor: hasPendingClaim ? '#FFCE00' : '#5aa84a' },
-              '&:disabled': { backgroundColor: '#515353' },
               minWidth: '90px'
             }}
           >
             {hasPendingClaim ? 'Edit' : 'Claim'}
           </Button>
         );
-      }
-    },
-    { 
-      field: 'claimStatus', 
-      headerName: 'Assignment Status', 
-      width: 120,
-      valueGetter: (value, row) => {
-        //console.log('Checking claim for game:', row.gameId, 'User claims:', userClaims.map(c => c.gameId));
-        const hasPendingClaim = userClaims.some(claim => {
-          //console.log(`Comparing claim.gameId (${claim.gameId}, ${typeof claim.gameId}) === row.gameId (${row.gameId}, ${typeof row.gameId})`);
-          return Number(claim.gameId) === Number(row.gameId);
-        });
-        return hasPendingClaim ? 'Pending' : 'Edit';
       },
-      renderCell: (params) => (
-        <Box
-          sx={{
-            color: params.value === 'Pending' ? '#FF5E00' : '#3F9033',
-            fontWeight: 'bold'
-          }}
-        >
-          {params.value}
-        </Box>
-      )
+      size: 120,
     },
-    { 
-      field: 'claimCount', 
-      headerName: '# of Claims', 
-      width: 100,
-      valueGetter: (value, row) => {
+    {
+      id: 'claimStatus',
+      header: 'Assignment Status',
+      cell: ({ row }) => {
+        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(row.original.gameId));
+        const value = hasPendingClaim ? 'Pending' : 'Edit';
+        return (
+          <Box sx={{ color: value === 'Pending' ? '#FF5E00' : '#3F9033', fontWeight: 'bold' }}>
+            {value}
+          </Box>
+        );
+      },
+      size: 140,
+    },
+    {
+      id: 'claimCount',
+      header: '# of Claims',
+      cell: ({ row }) => {
         const gameClaimsCount = allClaims.filter(claim => 
-          Number(claim.gameId) === Number(row.gameId) && 
+          Number(claim.gameId) === Number(row.original.gameId) && 
           claim.claimStatus !== 'Withdrawn'
         ).length;
         return gameClaimsCount;
-      }
+      },
+      size: 100,
     },
-    { 
-      field: 'gameId', 
-      headerName: 'ID', 
-      width: 70 
+    {
+      accessorKey: 'gameId',
+      header: 'ID',
+      size: 70,
     },
-    { 
-      field: 'gameDate', 
-      headerName: 'Date', 
-      width: 110,
-      valueFormatter: (value) => {
+    {
+      accessorKey: 'gameDate',
+      header: 'Date',
+      cell: ({ getValue }) => {
+        const value = getValue();
         if (!value) return '';
         return new Date(value).toLocaleDateString();
-      }
+      },
+      size: 110,
     },
-    { 
-      field: 'gameTime', 
-      headerName: 'Time', 
-      width: 100,
-      valueFormatter: (value) => {
+    {
+      accessorKey: 'gameTime',
+      header: 'Time',
+      cell: ({ getValue }) => {
+        const value = getValue();
         if (!value) return '';
         return formatTime12Hour(value);
-      }
+      },
+      size: 100,
     },
-    { 
-      field: 'ageLevelName', 
-      headerName: 'Age Level', 
-      width: 120 
+    {
+      accessorKey: 'ageLevelName',
+      header: 'Age Level',
+      size: 120,
     },
-    { 
-      field: 'homeClub', 
-      headerName: 'Home', 
-      width: 150 
+    {
+      accessorKey: 'homeClub',
+      header: 'Home',
+      size: 150,
     },
-    { 
-      field: 'awayClub', 
-      headerName: 'Away', 
-      width: 150 
+    {
+      accessorKey: 'awayClub',
+      header: 'Away',
+      size: 150,
     },
-    { 
-      field: 'venueName', 
-      headerName: 'Venue', 
-      width: 180 
+    {
+      accessorKey: 'venueName',
+      header: 'Venue',
+      size: 180,
     },
-    { 
-      field: 'leagueName', 
-      headerName: 'League', 
-      width: 150 
+    {
+      accessorKey: 'leagueName',
+      header: 'League',
+      size: 150,
     },
-    
-    { 
-      field: 'gameNotes', 
-      headerName: 'Notes', 
-      width: 250
-    }
-  ];
+    {
+      accessorKey: 'gameNotes',
+      header: 'Notes',
+      size: 250,
+    },
+  ], [gameDetails, userClaims, allClaims]);
+
+  const table = useReactTable({
+    data: games,
+    columns,
+    getRowCanExpand: (row) => {
+      const details = gameDetails[row.original.gameId];
+      return details?.openPositions && details.openPositions.length > 0;
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 25,
+      },
+    },
+  });
 
   const renderDetailPanel = (row) => {
-    const details = gameDetails[row.gameId];
+    const details = gameDetails[row.original.gameId];
     
     if (!details || !details.openPositions || details.openPositions.length === 0) {
       return null;
@@ -391,32 +428,81 @@ function Assignments() {
     const positions = details.openPositions || [];
 
     return (
-      <Box sx={{ py: 1, px: 6, backgroundColor: 'transparent' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+      <Box sx={{ py: 1, pl: '150px', pr: 6, backgroundColor: 'transparent' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83015625rem' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
-              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666' }}>Position</th>
-              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666' }}># of Claims</th>
-              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666' }}>Assigned Official</th>
+              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666', width: '12%' }}>Position</th>
+              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666', width: '10%' }}># of Claims</th>
+              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666', width: '15%' }}>Assigned Official</th>
+              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666' }}>Claims</th>
+              <th style={{ textAlign: 'left', padding: '8px', fontWeight: 600, color: '#666', width: '100px' }}>Action</th>
             </tr>
           </thead>
           <tbody>
             {positions.map((position) => {
               const positionClaims = allClaims.filter(
-                claim => Number(claim.gameId) === Number(row.gameId) && 
+                claim => Number(claim.gameId) === Number(row.original.gameId) && 
                          Number(claim.positionId) === Number(position.positionId) &&
                          claim.claimStatus !== 'Withdrawn'
               );
               const claimCount = positionClaims.length;
               
               const assignedOfficial = 'Open';
+              const assignmentKey = `${row.original.gameId}-${position.positionId}`;
+              const selectedValue = positionAssignments[assignmentKey] || 'open';
 
               return (
                 <tr key={position.positionId} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '8px', color: '#333' }}>{position.positionName}</td>
-                  <td style={{ padding: '8px', color: '#333' }}>{claimCount}</td>
-                  <td style={{ padding: '8px', color: assignedOfficial === 'Open' ? '#3F9033' : '#000', fontWeight: 500 }}>
+                  <td style={{ padding: '8px', color: '#333', width: '12%' }}>{position.positionName}</td>
+                  <td style={{ padding: '8px', color: '#333', width: '10%' }}>{claimCount}</td>
+                  <td style={{ padding: '8px', color: assignedOfficial === 'Open' ? '#3F9033' : '#000', fontWeight: 500, width: '15%' }}>
                     {assignedOfficial}
+                  </td>
+                  <td style={{ padding: '8px', paddingRight: '25px' }}>
+                    <FormControl size="small" fullWidth>
+                      <Select
+                        value={selectedValue}
+                        onChange={(e) => handleAssignmentChange(row.original.gameId, position.positionId, e.target.value)}
+                        sx={{
+                          fontSize: '0.75rem',
+                          '& .MuiSelect-select': {
+                            padding: '4px 8px'
+                          }
+                        }}
+                      >
+                        <MenuItem value="open" sx={{ fontSize: '0.75rem', color: '#3F9033', fontWeight: 600 }}>
+                          Open
+                        </MenuItem>
+                        {positionClaims.map((claim) => {
+                          const official = officials[claim.officialId];
+                          const officialName = official 
+                            ? `${official.firstName || official.FirstName || ''} ${official.lastName || official.LastName || ''}`.trim()
+                            : `Official ID: ${claim.officialId}`;
+                          return (
+                            <MenuItem key={claim.gameClaimId} value={claim.officialId} sx={{ fontSize: '0.75rem' }}>
+                              {officialName || `Official ID: ${claim.officialId}`}
+                            </MenuItem>
+                          );
+                        })}
+                      </Select>
+                    </FormControl>
+                  </td>
+                  <td style={{ padding: '8px', width: '100px' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => handleAssignPosition(row.original.gameId, position.positionId)}
+                      sx={{
+                        backgroundColor: '#3F9033',
+                        '&:hover': { backgroundColor: '#5aa84a' },
+                        fontSize: '0.7rem',
+                        minWidth: '70px',
+                        padding: '4px 12px'
+                      }}
+                    >
+                      Assign
+                    </Button>
                   </td>
                 </tr>
               );
@@ -512,63 +598,128 @@ function Assignments() {
         </Paper>
       )}
 
-      <Paper className="open-games-grid-container" sx={{ position: 'relative' }}>
-        <DataGrid
-          rows={games}
-          columns={columns}
-          getRowId={(row) => row.gameId}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 25 },
-            },
-          }}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          className="open-games-datagrid"
-          getRowClassName={(params) => 
-            expandedRows.has(params.id) ? 'expanded-row' : ''
-          }
-          sx={{
-            '& .MuiDataGrid-row.expanded-row': {
-              '& .MuiDataGrid-cell': {
-                borderBottom: 'none',
-              }
-            }
-          }}
-        />
-        {Array.from(expandedRows).map((gameId) => {
-          const game = games.find(g => g.gameId === gameId);
-          if (!game) return null;
-          
-          // Calculate which page the game is on
-          const gameIndex = games.findIndex(g => g.gameId === gameId);
-          const pageSize = 25;
-          const currentPage = Math.floor(gameIndex / pageSize);
-          
-          // Only show detail panels for current page
-          // Position based on row index within the page
-          const rowIndexInPage = gameIndex % pageSize;
-          const headerHeight = 56;
-          const rowHeight = 52;
-          const topPosition = headerHeight + ((rowIndexInPage + 1) * rowHeight);
-          
-          return (
-            <Box
-              key={`detail-${gameId}`}
-              sx={{
-                position: 'absolute',
-                top: `${topPosition}px`,
-                left: 0,
-                right: 0,
-                zIndex: 1,
-                backgroundColor: '#fafafa',
-                borderBottom: '1px solid #e0e0e0',
-              }}
+      <Paper className="open-games-grid-container" sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
+        <Box sx={{ minWidth: 'fit-content', flex: 1, overflow: 'auto', backgroundColor: 'white' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id} style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #e0e0e0' }}>
+                  {headerGroup.headers.map(header => (
+                    <th
+                      key={header.id}
+                      style={{
+                        padding: '12px 16px',
+                        textAlign: 'left',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        width: header.getSize(),
+                        cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                        userSelect: 'none',
+                      }}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                        {header.column.getCanSort() && (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5 }}>
+                            {header.column.getIsSorted() === 'asc' && <ArrowUpward sx={{ fontSize: 16 }} />}
+                            {header.column.getIsSorted() === 'desc' && <ArrowDownward sx={{ fontSize: 16 }} />}
+                            {!header.column.getIsSorted() && (
+                              <Box sx={{ opacity: 0.3, fontSize: 16 }}>⇅</Box>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map(row => (
+                <>
+                  <tr
+                    key={row.id}
+                    style={{
+                      borderBottom: '1px solid #e0e0e0',
+                      backgroundColor: 'white',
+                    }}
+                  >
+                    {row.getVisibleCells().map(cell => (
+                      <td
+                        key={cell.id}
+                        style={{
+                          padding: '12px 16px',
+                          fontSize: '0.875rem',
+                          verticalAlign: 'middle',
+                          width: cell.column.getSize(),
+                        }}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                  {row.getIsExpanded() && (
+                    <tr>
+                      <td colSpan={columns.length} style={{ padding: 0, backgroundColor: '#fafafa' }}>
+                        {renderDetailPanel(row)}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+            </tbody>
+          </table>
+        </Box>
+
+        {/* Pagination */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2, p: 1, borderTop: '1px solid #e0e0e0', flexShrink: 0, backgroundColor: 'white' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2">Rows per page:</Typography>
+            <Select
+              value={table.getState().pagination.pageSize}
+              onChange={e => table.setPageSize(Number(e.target.value))}
+              size="small"
+              sx={{ minWidth: 70 }}
             >
-              {renderDetailPanel(game)}
-            </Box>
-          );
-        })}
+              {[10, 25, 50, 100].map(pageSize => (
+                <MenuItem key={pageSize} value={pageSize}>
+                  {pageSize}
+                </MenuItem>
+              ))}
+            </Select>
+          </Box>
+          <Typography variant="body2">
+            {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}–
+            {Math.min(
+              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+              table.getFilteredRowModel().rows.length
+            )} of {table.getFilteredRowModel().rows.length}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </Box>
+        </Box>
       </Paper>
 
       <ClaimGame

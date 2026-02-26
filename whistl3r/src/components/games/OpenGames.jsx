@@ -1,10 +1,18 @@
-import { useState, useEffect } from 'react';
-import { DataGrid } from '@mui/x-data-grid';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+} from '@tanstack/react-table';
 import { Box, Typography, Paper, Button, Select, MenuItem, FormControl, Tooltip, IconButton } from '@mui/material';
-import { Info as InfoIcon } from '@mui/icons-material';
+import { Info as InfoIcon, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { useLoading } from '../../contexts/LoadingContext';
 import { formatTime12Hour } from '../../utils/timeFormatter';
 import ClaimGame from './ClaimGame';
+import CreateGame from './CreateGame';
 import './OpenGames.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -17,6 +25,7 @@ function OpenGames() {
   const [selectedSport, setSelectedSport] = useState('all');
   const [error, setError] = useState(null);
   const [claimDrawerOpen, setClaimDrawerOpen] = useState(false);
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [userClaims, setUserClaims] = useState([]);
   const [allClaims, setAllClaims] = useState([]);
@@ -37,6 +46,19 @@ function OpenGames() {
   const handleCloseDrawer = () => {
     setClaimDrawerOpen(false);
     setSelectedGameId(null);
+  };
+
+  const handleCreateGame = () => {
+    setCreateDrawerOpen(true);
+  };
+
+  const handleCreateSuccess = () => {
+    // Refresh games list after successful creation
+    fetchGames();
+  };
+
+  const handleCloseCreateDrawer = () => {
+    setCreateDrawerOpen(false);
   };
 
   const fetchUserClaims = async () => {
@@ -231,97 +253,85 @@ function OpenGames() {
     setGameView(event.target.value);
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     {
-      field: 'actions',
-      headerName: 'Actions',
-      width: 120,
-      sortable: false,
-      filterable: false,
-      renderCell: (params) => {
-        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(params.row.gameId));
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(row.original.gameId));
         return (
           <Button
             variant="contained"
             size="small"
-            onClick={() => handleClaim(params.row)}
+            onClick={() => handleClaim(row.original)}
             sx={{
               backgroundColor: hasPendingClaim ? '#FF5E00' : '#3F9033',
               '&:hover': { backgroundColor: hasPendingClaim ? '#FFCE00' : '#5aa84a' },
-              '&:disabled': { backgroundColor: '#515353' },
               minWidth: '90px'
             }}
           >
             {hasPendingClaim ? 'Edit Claim' : 'Claim'}
           </Button>
         );
-      }
-    },
-    { 
-      field: 'claimStatus', 
-      headerName: 'Claim Status', 
-      width: 120,
-      valueGetter: (value, row) => {
-        //console.log('Checking claim for game:', row.gameId, 'User claims:', userClaims.map(c => c.gameId));
-        const hasPendingClaim = userClaims.some(claim => {
-          //console.log(`Comparing claim.gameId (${claim.gameId}, ${typeof claim.gameId}) === row.gameId (${row.gameId}, ${typeof row.gameId})`);
-          return Number(claim.gameId) === Number(row.gameId);
-        });
-        return hasPendingClaim ? 'Pending' : 'Edit Claim';
       },
-      renderCell: (params) => (
-        <Box
-          sx={{
-            color: params.value === 'Pending' ? '#FF5E00' : '#3F9033',
-            fontWeight: 'bold'
-          }}
-        >
-          {params.value}
-        </Box>
-      )
+      size: 120,
     },
-    { 
-      field: 'claimCount', 
-      headerName: '# of Claims', 
-      width: 100,
-      valueGetter: (value, row) => {
+    {
+      id: 'claimStatus',
+      header: 'Claim Status',
+      cell: ({ row }) => {
+        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(row.original.gameId));
+        const value = hasPendingClaim ? 'Pending' : 'Edit Claim';
+        return (
+          <Box sx={{ color: value === 'Pending' ? '#FF5E00' : '#3F9033', fontWeight: 'bold' }}>
+            {value}
+          </Box>
+        );
+      },
+      size: 120,
+    },
+    {
+      id: 'claimCount',
+      header: '# of Claims',
+      cell: ({ row }) => {
         const gameClaimsCount = allClaims.filter(claim => 
-          Number(claim.gameId) === Number(row.gameId) && 
+          Number(claim.gameId) === Number(row.original.gameId) && 
           claim.claimStatus !== 'Withdrawn'
         ).length;
         return gameClaimsCount;
-      }
+      },
+      size: 100,
     },
-    { 
-      field: 'gameId', 
-      headerName: 'ID', 
-      width: 70 
+    {
+      accessorKey: 'gameId',
+      header: 'ID',
+      size: 70,
     },
-    { 
-      field: 'gameDate', 
-      headerName: 'Date', 
-      width: 110,
-      valueFormatter: (value) => {
+    {
+      accessorKey: 'gameDate',
+      header: 'Date',
+      cell: ({ getValue }) => {
+        const value = getValue();
         if (!value) return '';
         return new Date(value).toLocaleDateString();
-      }
+      },
+      size: 110,
     },
-    { 
-      field: 'gameTime', 
-      headerName: 'Time', 
-      width: 100,
-      valueFormatter: (value) => {
+    {
+      accessorKey: 'gameTime',
+      header: 'Time',
+      cell: ({ getValue }) => {
+        const value = getValue();
         if (!value) return '';
         return formatTime12Hour(value);
-      }
+      },
+      size: 100,
     },
-    { 
-      field: 'openPositions', 
-      headerName: 'Open Positions',
-      width: 260,
-      renderHeader: (params) => (
+    {
+      accessorKey: 'openPositions',
+      header: () => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <span style={{ fontWeight: 'bold' }}>{params.colDef.headerName}</span>
+          <span style={{ fontWeight: 'bold' }}>Open Positions</span>
           <Tooltip 
             title="Red indicates 3 or more claims, Blue indicates 1 or 2 claims, and Green indicates no claims"
             placement="top"
@@ -333,32 +343,29 @@ function OpenGames() {
           </Tooltip>
         </Box>
       ),
-      renderCell: (params) => {
-        const positions = params.value ? params.value.split(',').map(p => p.trim()) : [];
+      cell: ({ getValue, row }) => {
+        const value = getValue();
+        const positions = value ? value.split(',').map(p => p.trim()) : [];
         
         return (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
             {positions.map((position, index) => {
-              // Look up the positionId from the position name using our lookup table
               const positionKey = position.toLowerCase().trim();
               const positionId = positionLookup[positionKey];
               
-              // Count claims for this specific position and game
               const positionClaimCount = allClaims.filter(claim => {
-                const matchesGame = Number(claim.gameId) === Number(params.row.gameId);
+                const matchesGame = Number(claim.gameId) === Number(row.original.gameId);
                 const notWithdrawn = claim.claimStatus !== 'Withdrawn';
-                // Match by positionId if we have it
                 const matchesPosition = positionId ? Number(claim.positionId) === Number(positionId) : false;
                 
                 return matchesGame && notWithdrawn && matchesPosition;
               }).length;
               
-              // Determine color based on claim count
-              let color = '#3F9033'; // Green for 0 claims
+              let color = '#3F9033';
               if (positionClaimCount >= 3) {
-                color = '#A80000'; // Red for 3+ claims
+                color = '#A80000';
               } else if (positionClaimCount >= 1) {
-                color = '#0066CC'; // Blue for 1-2 claims
+                color = '#0066CC';
               }
               
               return (
@@ -369,40 +376,54 @@ function OpenGames() {
             })}
           </Box>
         );
-      }
+      },
+      size: 260,
     },
-    { 
-      field: 'ageLevelName', 
-      headerName: 'Age Level', 
-      width: 120 
+    {
+      accessorKey: 'ageLevelName',
+      header: 'Age Level',
+      size: 120,
     },
-    { 
-      field: 'homeClub', 
-      headerName: 'Home', 
-      width: 150 
+    {
+      accessorKey: 'homeClub',
+      header: 'Home',
+      size: 150,
     },
-    { 
-      field: 'awayClub', 
-      headerName: 'Away', 
-      width: 150 
+    {
+      accessorKey: 'awayClub',
+      header: 'Away',
+      size: 150,
     },
-    { 
-      field: 'venueName', 
-      headerName: 'Venue', 
-      width: 180 
+    {
+      accessorKey: 'venueName',
+      header: 'Venue',
+      size: 180,
     },
-    { 
-      field: 'leagueName', 
-      headerName: 'League', 
-      width: 150 
+    {
+      accessorKey: 'leagueName',
+      header: 'League',
+      size: 150,
     },
-    
-    { 
-      field: 'gameNotes', 
-      headerName: 'Notes', 
-      width: 250
-    }
-  ];
+    {
+      accessorKey: 'gameNotes',
+      header: 'Notes',
+      size: 250,
+    },
+  ], [userClaims, allClaims, positionLookup]);
+
+  const table = useReactTable({
+    data: games,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 25,
+      },
+    },
+  });
 
   return (
     <Box className="open-games-container">
@@ -489,27 +510,126 @@ function OpenGames() {
         </Paper>
       )}
 
-      <Paper className="open-games-grid-container">
-        <DataGrid
-          rows={games}
-          columns={columns}
-          getRowId={(row) => `${row.gameId}-${row.positionName || 'no-position'}-${Math.random()}`}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 25 },
-            },
-          }}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disableRowSelectionOnClick
-          disableColumnVirtualization
-          className="open-games-datagrid"
-        />
+      <Paper className="open-games-grid-container" sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
+        <Box sx={{ minWidth: 'fit-content', flex: 1, overflow: 'auto', backgroundColor: 'white' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              {table.getHeaderGroups().map(headerGroup => (
+                <tr key={headerGroup.id} style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #e0e0e0' }}>
+                  {headerGroup.headers.map(header => (
+                    <th
+                      key={header.id}
+                      style={{
+                        padding: '12px 16px',
+                        textAlign: 'left',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        width: header.getSize(),
+                        cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                        userSelect: 'none',
+                      }}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                        {header.column.getCanSort() && (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.5 }}>
+                            {header.column.getIsSorted() === 'asc' && <ArrowUpward sx={{ fontSize: 16 }} />}
+                            {header.column.getIsSorted() === 'desc' && <ArrowDownward sx={{ fontSize: 16 }} />}
+                            {!header.column.getIsSorted() && (
+                              <Box sx={{ opacity: 0.3, fontSize: 16 }}>⇅</Box>
+                            )}
+                          </Box>
+                        )}
+                      </Box>
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map(row => (
+                <tr
+                  key={row.id}
+                  style={{
+                    borderBottom: '1px solid #e0e0e0',
+                    backgroundColor: 'white',
+                  }}
+                >
+                  {row.getVisibleCells().map(cell => (
+                    <td
+                      key={cell.id}
+                      style={{
+                        padding: '12px 16px',
+                        fontSize: '0.875rem',
+                        verticalAlign: 'middle',
+                        width: cell.column.getSize(),
+                      }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Box>
+
+        {/* Pagination */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2, p: 1, borderTop: '1px solid #e0e0e0', flexShrink: 0, backgroundColor: 'white' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2">Rows per page:</Typography>
+            <Select
+              value={table.getState().pagination.pageSize}
+              onChange={e => table.setPageSize(Number(e.target.value))}
+              size="small"
+              sx={{ minWidth: 70 }}
+            >
+              {[10, 25, 50, 100].map(pageSize => (
+                <MenuItem key={pageSize} value={pageSize}>
+                  {pageSize}
+                </MenuItem>
+              ))}
+            </Select>
+          </Box>
+          <Typography variant="body2">
+            {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}–
+            {Math.min(
+              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+              table.getFilteredRowModel().rows.length
+            )} of {table.getFilteredRowModel().rows.length}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </Box>
+        </Box>
       </Paper>
 
       {hasCreatePermission && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', marginRight: '24px' }}>
           <Button
             variant="contained"
+            onClick={handleCreateGame}
             sx={{
               backgroundColor: '#3F9033',
               '&:hover': { backgroundColor: '#5aa84a' },
@@ -531,6 +651,12 @@ function OpenGames() {
         onClose={handleCloseDrawer}
         gameId={selectedGameId}
         onClaimSuccess={handleClaimSuccess}
+      />
+
+      <CreateGame
+        open={createDrawerOpen}
+        onClose={handleCloseCreateDrawer}
+        onCreateSuccess={handleCreateSuccess}
       />
     </Box>
   );
