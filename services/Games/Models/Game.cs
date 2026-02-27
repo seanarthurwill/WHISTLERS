@@ -175,4 +175,69 @@ namespace GamesService.Models
         [Column("is_active")]
         public bool? IsActive { get; set; }
     }
+
+    [Table("league_organizations")]
+    public class LeagueOrganization
+    {
+        [Column("league_organization_id")]
+        public int LeagueOrganizationId { get; set; }
+        
+        [Column("league_id")]
+        public int LeagueId { get; set; }
+        
+        [Column("organization_id")]
+        public int OrganizationId { get; set; }
+        
+        [Column("joined_at")]
+        public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+        
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
+        
+        // Navigation property
+        public League? League { get; set; }
+    }
+
+    [Table("venues")]
+    public class Venue
+    {
+        [Column("venue_id")]
+        public int VenueId { get; set; }
+        
+        [Column("organization_id")]
+        public int OrganizationId { get; set; }
+        
+        [Column("venue_name")]
+        public string VenueName { get; set; } = null!;
+        
+        [Column("address_line1")]
+        public string? AddressLine1 { get; set; }
+        
+        [Column("address_line2")]
+        public string? AddressLine2 { get; set; }
+        
+        [Column("city")]
+        public string? City { get; set; }
+        
+        [Column("state_province")]
+        public string? StateProvince { get; set; }
+        
+        [Column("postal_code")]
+        public string? PostalCode { get; set; }
+        
+        [Column("country")]
+        public string? Country { get; set; }
+        
+        [Column("latitude")]
+        public decimal? Latitude { get; set; }
+        
+        [Column("longitude")]
+        public decimal? Longitude { get; set; }
+        
+        [Column("timezone")]
+        public string? Timezone { get; set; }
+        
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
+    }
 }

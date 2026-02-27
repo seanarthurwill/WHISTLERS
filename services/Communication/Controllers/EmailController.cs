@@ -22,6 +22,8 @@ namespace CommunicationService.Controllers
         [HttpPost("send")]
         public async Task<ActionResult> SendEmail([FromBody] SendEmailRequest request)
         {
+            _logger.LogInformation("[EmailController] Received email request - To: '{To}', Subject: '{Subject}'", request.To, request.Subject);
+            
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
@@ -34,6 +36,7 @@ namespace CommunicationService.Controllers
             if (string.IsNullOrWhiteSpace(request.Body))
                 return BadRequest(new { message = "Email body is required" });
 
+            _logger.LogInformation("[EmailController] Sending email to: '{To}' from service", request.To);
             var result = await _emailService.SendEmailAsync(
                 request.To, 
                 request.Subject, 

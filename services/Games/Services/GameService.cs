@@ -44,6 +44,7 @@ namespace GamesService.Services
         Task<IEnumerable<League>> GetAllLeaguesAsync();
         Task<League?> GetLeagueByIdAsync(int id);
         Task<IEnumerable<League>> GetLeaguesBySportAsync(int sportId);
+        Task<IEnumerable<League>> GetLeaguesByOrganizationAsync(int organizationId);
         Task<League> CreateLeagueAsync(League league);
         Task<League?> UpdateLeagueAsync(int id, League league);
         Task<bool> DeleteLeagueAsync(int id);
@@ -54,6 +55,16 @@ namespace GamesService.Services
         Task<IEnumerable<GameClaim>> GetClaimsByGameIdAsync(int gameId);
         Task<GameClaim> CreateClaimAsync(int gameId, int officialId, int positionId);
         Task<bool> SoftDeleteClaimAsync(int claimId, int deletedBy);
+    }
+
+    public interface IVenueService
+    {
+        Task<IEnumerable<Venue>> GetAllVenuesAsync();
+        Task<Venue?> GetVenueByIdAsync(int id);
+        Task<IEnumerable<Venue>> GetVenuesByOrganizationAsync(int organizationId);
+        Task<Venue> CreateVenueAsync(Venue venue);
+        Task<Venue?> UpdateVenueAsync(int id, Venue venue);
+        Task<bool> DeleteVenueAsync(int id);
     }
 
     // ===== IMPLEMENTATIONS =====
@@ -433,6 +444,17 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<League>> GetLeaguesByOrganizationAsync(int organizationId)
+        {
+            return await _context.LeagueOrganizations
+                .Where(lo => lo.OrganizationId == organizationId && lo.IsActive)
+                .Include(lo => lo.League)
+                .Where(lo => lo.League != null && lo.League.IsActive)
+                .Select(lo => lo.League!)
+                .OrderBy(l => l.LeagueName)
+                .ToListAsync();
+        }
+
         public async Task<League> CreateLeagueAsync(League league)
         {
             _context.Leagues.Add(league);
@@ -526,6 +548,84 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             // Soft delete by updating status to "Withdrawn"
             claim.ClaimStatus = "Withdrawn";
             
+            await _context.SaveChangesAsync();
+            return true;
+        }
+    }
+
+    public class VenueService : IVenueService
+    {
+        private readonly ApplicationDbContext _context;
+        private readonly ILogger<VenueService> _logger;
+
+        public VenueService(ApplicationDbContext context, ILogger<VenueService> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        public async Task<IEnumerable<Venue>> GetAllVenuesAsync()
+        {
+            return await _context.Venues
+                .Where(v => v.IsActive)
+                .OrderBy(v => v.VenueName)
+                .ToListAsync();
+        }
+
+        public async Task<Venue?> GetVenueByIdAsync(int id)
+        {
+            return await _context.Venues.FindAsync(id);
+        }
+
+        public async Task<IEnumerable<Venue>> GetVenuesByOrganizationAsync(int organizationId)
+        {
+            _logger.LogInformation($"[GetVenuesByOrganization] Fetching venues for organization {organizationId}");
+            
+            var venues = await _context.Venues
+                .Where(v => v.OrganizationId == organizationId && v.IsActive)
+                .OrderBy(v => v.VenueName)
+                .ToListAsync();
+            
+            _logger.LogInformation($"[GetVenuesByOrganization] Found {venues.Count()} venues for organization {organizationId}");
+            
+            return venues;
+        }
+
+        public async Task<Venue> CreateVenueAsync(Venue venue)
+        {
+            _context.Venues.Add(venue);
+            await _context.SaveChangesAsync();
+            return venue;
+        }
+
+        public async Task<Venue?> UpdateVenueAsync(int id, Venue venue)
+        {
+            var existing = await _context.Venues.FindAsync(id);
+            if (existing == null) return null;
+
+            existing.OrganizationId = venue.OrganizationId;
+            existing.VenueName = venue.VenueName;
+            existing.AddressLine1 = venue.AddressLine1;
+            existing.AddressLine2 = venue.AddressLine2;
+            existing.City = venue.City;
+            existing.StateProvince = venue.StateProvince;
+            existing.PostalCode = venue.PostalCode;
+            existing.Country = venue.Country;
+            existing.Latitude = venue.Latitude;
+            existing.Longitude = venue.Longitude;
+            existing.Timezone = venue.Timezone;
+            existing.IsActive = venue.IsActive;
+
+            await _context.SaveChangesAsync();
+            return existing;
+        }
+
+        public async Task<bool> DeleteVenueAsync(int id)
+        {
+            var venue = await _context.Venues.FindAsync(id);
+            if (venue == null) return false;
+
+            _context.Venues.Remove(venue);
             await _context.SaveChangesAsync();
             return true;
         }

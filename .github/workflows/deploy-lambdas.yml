@@ -1,0 +1,123 @@
+name: Deploy Lambda Functions to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+env:
+  AWS_REGION: us-east-2
+  AWS_ACCOUNT_ID: 636017849911
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push images to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          services=("users" "games" "organizations" "assignors" "communication" "reviews" "groups" "payscale")
+          
+          echo "Creating ECR repositories..."
+          for service in "${services[@]}"; do
+            echo "Creating repository: $service-lambda"
+            aws ecr create-repository --repository-name "$service-lambda" --region $AWS_REGION 2>/dev/null || echo "Repository already exists: $service-lambda"
+          done
+          
+          echo "Building and pushing services..."
+          for service in "${services[@]}"; do
+            echo "========================================"
+            echo "Processing: $service"
+            echo "========================================"
+            
+            dockerfile="Dockerfile.$service"
+            image_name="$service-lambda"
+            ecr_uri="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$image_name:latest"
+            
+            # Build
+            echo "Building $service for Linux/AMD64..."
+            docker build --platform linux/amd64 -f $dockerfile -t $image_name .
+            
+            if [ $? -ne 0 ]; then
+              echo "Build failed for $service"
+              exit 1
+            fi
+            echo "Build complete: $service"
+            
+            # Tag
+            echo "Tagging $service..."
+            docker tag "$image_name:latest" $ecr_uri
+            echo "Tagged: $service"
+            
+            # Push
+            echo "Pushing $service to ECR..."
+            docker push $ecr_uri
+            
+            if [ $? -ne 0 ]; then
+              echo "Push failed for $service"
+              exit 1
+            fi
+            echo "Pushed: $service"
+          done
+          
+          echo "========================================"
+          echo "All services deployed to ECR!"
+          echo "========================================"
+
+      - name: Update Lambda functions
+        run: |
+          services=("users" "games" "organizations" "assignors" "communication" "reviews" "groups" "payscale")
+          
+          echo "Updating Lambda functions with new images..."
+          
+          for service in "${services[@]}"; do
+            function_name="$service-lambda"
+            image_uri="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$service-lambda:latest"
+            
+            echo "Updating $function_name..."
+            
+            aws lambda update-function-code \
+              --function-name $function_name \
+              --image-uri $image_uri \
+              --region $AWS_REGION \
+              --output json > /dev/null
+            
+            if [ $? -eq 0 ]; then
+              echo "Updated: $function_name"
+            else
+              echo "Failed: $function_name"
+              exit 1
+            fi
+          done
+          
+          echo "Waiting for functions to become active..."
+          sleep 10
+          
+          echo "========================================"
+          echo "All Lambda functions updated!"
+          echo "========================================"
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "Services deployed: users, games, organizations, assignors, communication, reviews, groups, payscale"
+          echo "Region: $AWS_REGION"
+          echo "Timestamp: $(date)"

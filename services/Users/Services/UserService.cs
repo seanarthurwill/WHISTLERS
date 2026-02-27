@@ -11,10 +11,13 @@ namespace UsersService.Services
         Task<IEnumerable<User>> GetAllUsersAsync();
         Task<User?> GetUserByIdAsync(int id);
         Task<User?> GetUserByEmailAsync(string email);
+        Task<User?> GetUserByEmailLightweightAsync(string email);
         Task<User?> GetUserByResetGuidAsync(string resetGuid);
         Task<User?> GetUserByOfficialIdAsync(int officialId);
         Task<User> CreateUserAsync(User user);
         Task<User?> UpdateUserAsync(int id, User user);
+        Task<bool> UpdateResetPasswordGuidAsync(int userId, Guid resetGuid);
+        Task<bool> UpdatePasswordAndClearResetGuidAsync(int userId, string passwordHash);
         Task<bool> DeleteUserAsync(int id);
         Task<bool> UserExistsAsync(int id);
         Task<bool> EmailExistsAsync(string email);
@@ -36,10 +39,12 @@ namespace UsersService.Services
     public class UserService : IUserService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<UserService> _logger;
 
-        public UserService(ApplicationDbContext context)
+        public UserService(ApplicationDbContext context, ILogger<UserService> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<IEnumerable<User>> GetAllUsersAsync()
@@ -62,8 +67,16 @@ namespace UsersService.Services
         public async Task<User?> GetUserByEmailAsync(string email)
         {
             return await _context.Users
+                .AsNoTracking()
                 .Include(u => u.UserRoles)
                     .ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        public async Task<User?> GetUserByEmailLightweightAsync(string email)
+        {
+            return await _context.Users
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Email == email);
         }
 
@@ -73,6 +86,7 @@ namespace UsersService.Services
                 return null;
 
             return await _context.Users
+                .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.ResetPasswordGuid == guid);
         }
 
@@ -89,6 +103,22 @@ namespace UsersService.Services
                 .FirstOrDefaultAsync(u => u.UserId == official.UserId);
         }
 
+        public async Task<bool> UpdateResetPasswordGuidAsync(int userId, Guid resetGuid)
+        {
+            var rowsAffected = await _context.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE users SET reset_password_guid = {resetGuid} WHERE user_id = {userId}");
+            
+            return rowsAffected > 0;
+        }
+
+        public async Task<bool> UpdatePasswordAndClearResetGuidAsync(int userId, string passwordHash)
+        {
+            var rowsAffected = await _context.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE users SET password_hash = {passwordHash}, reset_password_guid = NULL WHERE user_id = {userId}");
+            
+            return rowsAffected > 0;
+        }
+
         public async Task<User> CreateUserAsync(User user)
         {
             user.CreatedAt = DateTime.UtcNow;
@@ -99,13 +129,21 @@ namespace UsersService.Services
 
         public async Task<User?> UpdateUserAsync(int id, User user)
         {
+            _logger.LogInformation("[UpdateUserAsync] START - UserId: {UserId}", id);
+            
+            _logger.LogInformation("[UpdateUserAsync] Loading existing user...");
             var existing = await _context.Users
                 .Include(u => u.UserRoles)
                     .ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.UserId == id);
                 
-            if (existing == null) return null;
+            if (existing == null)
+            {
+                _logger.LogWarning("[UpdateUserAsync] User not found: {UserId}", id);
+                return null;
+            }
 
+            _logger.LogInformation("[UpdateUserAsync] Updating basic properties...");
             existing.Email = user.Email;
             existing.FirstName = user.FirstName;
             existing.LastName = user.LastName;
@@ -117,10 +155,20 @@ namespace UsersService.Services
             existing.ResetPasswordGuid = user.ResetPasswordGuid;
             existing.LastLogin = user.LastLogin;
 
-            // Update user roles - remove existing and add new ones
-            _context.UserRoles.RemoveRange(existing.UserRoles);
+            _logger.LogInformation("[UpdateUserAsync] About to update user roles. Existing count: {Count}", existing.UserRoles.Count);
             
-            foreach (var userRole in user.UserRoles)
+            // Update user roles - remove existing and add new ones
+            _logger.LogInformation("[UpdateUserAsync] Creating snapshot of existing roles...");
+            var exitingRoles = existing.UserRoles.ToList();
+            
+            _logger.LogInformation("[UpdateUserAsync] Removing {Count} existing roles...", exitingRoles.Count);
+            _context.UserRoles.RemoveRange(exitingRoles);
+            
+            _logger.LogInformation("[UpdateUserAsync] Creating snapshot of incoming roles. Count: {Count}", user.UserRoles.Count);
+            var incomingRoles = user.UserRoles.ToList();
+            
+            _logger.LogInformation("[UpdateUserAsync] Adding {Count} new roles...", incomingRoles.Count);
+            foreach (var userRole in incomingRoles)
             {
                 _context.UserRoles.Add(new UserRole
                 {
@@ -129,21 +177,27 @@ namespace UsersService.Services
                 });
             }
 
+            _logger.LogInformation("[UpdateUserAsync] Saving changes to database...");
             await _context.SaveChangesAsync();
+            _logger.LogInformation("[UpdateUserAsync] Changes saved successfully");
 
             // Only process role-based table creation if user is active
             if (existing.IsActive)
             {
+                _logger.LogInformation("[UpdateUserAsync] User is active, loading roles for table creation...");
                 // Load role names for checking
                 var userWithRoles = await _context.Users
+                    .AsNoTracking()
                     .Include(u => u.UserRoles)
                         .ThenInclude(ur => ur.Role)
                     .FirstOrDefaultAsync(u => u.UserId == id);
+                _logger.LogInformation("[UpdateUserAsync] Roles loaded for active user");
 
                 if (userWithRoles != null)
                 {
                     var roleNames = userWithRoles.UserRoles
-                        .Select(ur => ur.Role.RoleName)
+                        .Where(ur => ur.Role != null)
+                        .Select(ur => ur.Role!.RoleName)
                         .ToList();
 
                     // Check and create Official record

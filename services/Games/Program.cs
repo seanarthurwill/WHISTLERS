@@ -34,6 +34,7 @@ builder.Services.AddScoped<ILeagueService, LeagueService>();
 builder.Services.AddScoped<ISportService, SportService>();
 builder.Services.AddScoped<IGameAssignmentService, GameAssignmentService>();
 builder.Services.AddScoped<IClaimsService, ClaimsService>();
+builder.Services.AddScoped<IVenueService, VenueService>();
 
 // Enable detailed logging for EF Core queries
 builder.Logging.AddConsole();

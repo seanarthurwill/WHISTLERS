@@ -744,6 +744,8 @@ private string ComputeHash(string input)
         {
             try
             {
+                _logger.LogInformation("[RequestPasswordReset] START - Email: {Email}", email);
+                
                 if (string.IsNullOrWhiteSpace(email))
                 {
                     return new AuthResult
@@ -753,10 +755,13 @@ private string ComputeHash(string input)
                     };
                 }
 
-                // Look up user by email
-                var user = await _userService.GetUserByEmailAsync(email);
+                _logger.LogInformation("[RequestPasswordReset] Looking up user...");
+                // Look up user by email (lightweight - no roles)
+                var user = await _userService.GetUserByEmailLightweightAsync(email);
+                
                 if (user == null)
                 {
+                    _logger.LogInformation("[RequestPasswordReset] User not found");
                     // Return success even if user not found (security best practice to prevent email enumeration)
                     return new AuthResult
                     {
@@ -765,12 +770,15 @@ private string ComputeHash(string input)
                     };
                 }
 
+                _logger.LogInformation("[RequestPasswordReset] User found: {UserId}. Generating reset GUID...", user.UserId);
                 // Generate unique reset GUID
                 var resetGuid = Guid.NewGuid();
-                user.ResetPasswordGuid = resetGuid;
 
-                // Save reset GUID to user record
-                await _userService.UpdateUserAsync(user.UserId, user);
+                _logger.LogInformation("[RequestPasswordReset] Updating reset GUID in database...");
+                // Save reset GUID to user record (without updating roles)
+                await _userService.UpdateResetPasswordGuidAsync(user.UserId, resetGuid);
+                
+                _logger.LogInformation("[RequestPasswordReset] Reset GUID updated successfully");
 
                 // Get Communication service URL from config
                 var communicationServiceUrl = _configuration["Services:Communication"] ?? "http://localhost:5003";
@@ -811,7 +819,7 @@ private string ComputeHash(string input)
                 catch (Exception ex)
                 {
                     // Handle Communication service errors (network issues, service down, etc.)
-                    _logger.LogError($"Error calling Communication service: {ex.Message}");
+                    _logger.LogError("[RequestPasswordReset] Error calling Communication service: {Message}", ex.Message);
                     return new AuthResult
                     {
                         Success = false,
@@ -819,6 +827,7 @@ private string ComputeHash(string input)
                     };
                 }
 
+                _logger.LogInformation("[RequestPasswordReset] Email sent successfully. Completing request...");
                 return new AuthResult
                 {
                     Success = true,
@@ -827,7 +836,7 @@ private string ComputeHash(string input)
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Password reset request failed: {ex.Message}");
+                _logger.LogError("[RequestPasswordReset] EXCEPTION - Type: {Type}, Message: {Message}", ex.GetType().Name, ex.Message);
                 return new AuthResult
                 {
                     Success = false,
@@ -865,11 +874,8 @@ private string ComputeHash(string input)
                 }
 
                 // Update password (TODO: in production, hash password properly with bcrypt)
-                user.PasswordHash = newPassword; // INSECURE: Should be hashed
-                user.ResetPasswordGuid = null; // Clear reset GUID so it can't be reused
-
-                // Save updated user
-                await _userService.UpdateUserAsync(user.UserId, user);
+                // INSECURE: Should be hashed
+                await _userService.UpdatePasswordAndClearResetGuidAsync(user.UserId, newPassword);
 
                 return new AuthResult
                 {

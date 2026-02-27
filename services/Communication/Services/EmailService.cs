@@ -38,6 +38,8 @@ namespace CommunicationService.Services
             {
                 var sender = _configuration["Email:SenderEmail"];
                 
+                _logger.LogInformation("[EmailService] SendEmailAsync called - To: '{To}', From: '{Sender}', Subject: '{Subject}'", to, sender, subject);
+                
                 if (string.IsNullOrWhiteSpace(sender))
                 {
                     _logger.LogError("Sender email not configured in appsettings.json");
@@ -47,6 +49,13 @@ namespace CommunicationService.Services
                         ErrorMessage = "Sender email not configured" 
                     };
                 }
+                
+                // Trim whitespace from emails
+                to = to?.Trim() ?? "";
+                sender = sender?.Trim() ?? "";
+                
+                _logger.LogInformation("[EmailService] After trim - To: '{To}' (Length: {ToLength}), From: '{Sender}' (Length: {SenderLength})", 
+                    to, to.Length, sender, sender.Length);
 
                 var sendRequest = new SendEmailRequest
                 {
@@ -74,6 +83,9 @@ namespace CommunicationService.Services
                     }
                 };
 
+                _logger.LogInformation("[EmailService] About to call AWS SES SendEmailAsync - Source: '{Source}', ToAddresses: [{To}]", 
+                    sendRequest.Source, string.Join(", ", sendRequest.Destination.ToAddresses));
+                
                 var response = await _sesClient.SendEmailAsync(sendRequest);
                 _logger.LogInformation($"Email sent successfully to {to}. MessageId: {response.MessageId}");
                 
@@ -85,7 +97,8 @@ namespace CommunicationService.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to send email to {to}: {ex.Message}");
+                _logger.LogError("[EmailService] EXCEPTION - Type: {Type}, Message: {Message}, StackTrace: {StackTrace}", 
+                    ex.GetType().Name, ex.Message, ex.StackTrace);
                 return new EmailResult 
                 { 
                     Success = false, 

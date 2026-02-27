@@ -293,6 +293,13 @@ namespace GamesService.Controllers
             return Ok(leagues);
         }
 
+        [HttpGet("organization/{organizationId}")]
+        public async Task<ActionResult<IEnumerable<League>>> GetByOrganization(int organizationId)
+        {
+            var leagues = await _leagueService.GetLeaguesByOrganizationAsync(organizationId);
+            return Ok(leagues);
+        }
+
         [HttpPost]
         public async Task<ActionResult<League>> Create([FromBody] League league)
         {
@@ -312,6 +319,63 @@ namespace GamesService.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             var deleted = await _leagueService.DeleteLeagueAsync(id);
+            if (!deleted) return NotFound();
+            return NoContent();
+        }
+    }
+
+    [ApiController]
+    [Route("api/venues")]
+    public class VenuesController : ControllerBase
+    {
+        private readonly IVenueService _venueService;
+
+        public VenuesController(IVenueService venueService)
+        {
+            _venueService = venueService;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Venue>>> GetAll()
+        {
+            var venues = await _venueService.GetAllVenuesAsync();
+            return Ok(venues);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Venue>> GetById(int id)
+        {
+            var venue = await _venueService.GetVenueByIdAsync(id);
+            if (venue == null) return NotFound();
+            return Ok(venue);
+        }
+
+        [HttpGet("organization/{organizationId}")]
+        public async Task<ActionResult<IEnumerable<Venue>>> GetByOrganization(int organizationId)
+        {
+            var venues = await _venueService.GetVenuesByOrganizationAsync(organizationId);
+            return Ok(venues);
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Venue>> Create([FromBody] Venue venue)
+        {
+            var created = await _venueService.CreateVenueAsync(venue);
+            return CreatedAtAction(nameof(GetById), new { id = created.VenueId }, created);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult<Venue>> Update(int id, [FromBody] Venue venue)
+        {
+            var updated = await _venueService.UpdateVenueAsync(id, venue);
+            if (updated == null) return NotFound();
+            return Ok(updated);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var deleted = await _venueService.DeleteVenueAsync(id);
             if (!deleted) return NotFound();
             return NoContent();
         }

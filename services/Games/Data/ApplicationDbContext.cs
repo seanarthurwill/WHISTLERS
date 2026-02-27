@@ -14,6 +14,8 @@ namespace GamesService.Data
         public DbSet<Sport> Sports { get; set; } = null!;
         public DbSet<League> Leagues { get; set; } = null!;
         public DbSet<AgeLevel> AgeLevels { get; set; } = null!;
+        public DbSet<LeagueOrganization> LeagueOrganizations { get; set; } = null!;
+        public DbSet<Venue> Venues { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -104,6 +106,47 @@ namespace GamesService.Data
                 entity.Property(e => e.GameStatusName).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            });
+
+            // LeagueOrganization configuration
+            modelBuilder.Entity<LeagueOrganization>(entity =>
+            {
+                entity.HasKey(e => e.LeagueOrganizationId);
+                entity.ToTable("league_organizations");
+                
+                entity.Property(e => e.JoinedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                
+                entity.HasIndex(e => new { e.LeagueId, e.OrganizationId }).IsUnique();
+                entity.HasIndex(e => e.LeagueId);
+                entity.HasIndex(e => e.OrganizationId);
+                
+                entity.HasOne(e => e.League)
+                    .WithMany()
+                    .HasForeignKey(e => e.LeagueId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Venue configuration
+            modelBuilder.Entity<Venue>(entity =>
+            {
+                entity.HasKey(e => e.VenueId);
+                entity.ToTable("venues");
+                
+                entity.Property(e => e.VenueName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.AddressLine1).HasMaxLength(200);
+                entity.Property(e => e.AddressLine2).HasMaxLength(200);
+                entity.Property(e => e.City).HasMaxLength(100);
+                entity.Property(e => e.StateProvince).HasMaxLength(100);
+                entity.Property(e => e.PostalCode).HasMaxLength(20);
+                entity.Property(e => e.Country).HasMaxLength(100);
+                entity.Property(e => e.Timezone).HasMaxLength(100);
+                entity.Property(e => e.Latitude).HasColumnType("decimal(10,8)");
+                entity.Property(e => e.Longitude).HasColumnType("decimal(11,8)");
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                
+                entity.HasIndex(e => e.OrganizationId);
+                entity.HasIndex(e => new { e.Latitude, e.Longitude });
             });
         }
     }
