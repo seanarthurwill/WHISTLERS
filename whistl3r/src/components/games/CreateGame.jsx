@@ -42,8 +42,8 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
 
   // Dropdown options
   const [organizations, setOrganizations] = useState([]);
-  // const [leagues, setLeagues] = useState([]);
-  // const [venues, setVenues] = useState([]);
+  const [leagues, setLeagues] = useState([]);
+  const [venues, setVenues] = useState([]);
   // const [ageLevels, setAgeLevels] = useState([]);
   const [gameStatuses, setGameStatuses] = useState([]);
   
@@ -97,18 +97,84 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
         setGameStatuses(statusData);
       }
 
-      // TODO: Fetch leagues, venues, age levels when those endpoints are available
-      // For now, we'll allow manual entry or use placeholder data
+      // TODO: Fetch age levels when endpoint is available
     } catch (err) {
       console.error('Error fetching dropdown data:', err);
     }
   };
+
+  const fetchLeaguesByOrganization = async (organizationId) => {
+    if (!organizationId) {
+      setLeagues([]);
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('accessToken');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      const response = await fetch(`${API_BASE_URL}/leagues/organization/${organizationId}`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setLeagues(data);
+      } else {
+        setLeagues([]);
+      }
+    } catch (err) {
+      console.error('Error fetching leagues:', err);
+      setLeagues([]);
+    }
+  };
+
+  const fetchVenuesByOrganization = async (organizationId) => {
+    if (!organizationId) {
+      setVenues([]);
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('accessToken');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      
+      console.log(`Fetching venues for organization ${organizationId}...`);
+      const response = await fetch(`${API_BASE_URL}/venues/organization/${organizationId}`, { headers });
+      console.log('Venues response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Fetched venues:', data);
+        setVenues(data);
+      } else {
+        console.error('Failed to fetch venues, status:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        setVenues([]);
+      }
+    } catch (err) {
+      console.error('Error fetching venues:', err);
+      setVenues([]);
+    }
+  };
+
+
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // When organization changes, fetch its leagues and venues, reset selections
+    if (field === 'organizationId') {
+      fetchLeaguesByOrganization(value);
+      fetchVenuesByOrganization(value);
+      setFormData(prev => ({
+        ...prev,
+        organizationId: value,
+        leagueId: '', // Reset league when organization changes
+        venueId: '' // Reset venue when organization changes
+      }));
+    }
   };
 
   const handleSubmit = async () => {
@@ -248,15 +314,22 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
             </Select>
           </FormControl>
 
-          {/* League ID */}
-          <TextField
-            fullWidth
-            label="League ID"
-            type="number"
-            value={formData.leagueId}
-            onChange={(e) => handleInputChange('leagueId', e.target.value)}
-            sx={{ mb: 2 }}
-          />
+          {/* League */}
+          <FormControl fullWidth sx={{ mb: 2 }} disabled={submitting || !formData.organizationId}>
+            <InputLabel>League</InputLabel>
+            <Select
+              value={formData.leagueId}
+              label="League"
+              onChange={(e) => handleInputChange('leagueId', e.target.value)}
+            >
+              <MenuItem value="">None</MenuItem>
+              {leagues.map((league) => (
+                <MenuItem key={league.leagueId} value={league.leagueId}>
+                  {league.leagueName} {league.season ? `(${league.season})` : ''}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {/* Tournament ID */}
           <TextField
@@ -268,16 +341,22 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
             sx={{ mb: 2 }}
           />
 
-          {/* Venue ID */}
-          <TextField
-            fullWidth
-            label="Venue ID"
-            type="number"
-            value={formData.venueId}
-            onChange={(e) => handleInputChange('venueId', e.target.value)}
-            sx={{ mb: 2 }}
-            required
-          />
+          {/* Venue */}
+          <FormControl fullWidth sx={{ mb: 2 }} required disabled={!formData.organizationId}>
+            <InputLabel>Venue</InputLabel>
+            <Select
+              value={formData.venueId}
+              label="Venue"
+              onChange={(e) => handleInputChange('venueId', e.target.value)}
+            >
+              <MenuItem value="">Select a venue</MenuItem>
+              {venues.map((venue) => (
+                <MenuItem key={venue.venueId} value={venue.venueId}>
+                  {venue.venueName}{venue.city ? ` - ${venue.city}` : ''}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {/* Age Level ID */}
           <TextField
