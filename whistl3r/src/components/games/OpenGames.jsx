@@ -16,6 +16,9 @@ import CreateGame from './CreateGame';
 import './OpenGames.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+console.log('🔍 OpenGames - VITE_API_URL from env:', import.meta.env.VITE_API_URL);
+console.log('🔍 OpenGames - Final API_BASE_URL:', API_BASE_URL);
+console.log('🔍 OpenGames - All env vars:', import.meta.env);
 
 function OpenGames() {
   const { showLoading, hideLoading } = useLoading();
