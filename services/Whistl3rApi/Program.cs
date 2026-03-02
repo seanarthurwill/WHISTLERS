@@ -96,7 +96,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "http://localhost:5173",
             "http://localhost:5174",
-            "http://localhost:3000"
+            "http://localhost:3000",
+            "http://whistl3r-alb-438377692.us-east-2.elb.amazonaws.com"
         )
         .AllowAnyMethod()
         .AllowAnyHeader()
@@ -151,5 +152,13 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "healthy",
+    timestamp = DateTime.UtcNow,
+    environment = app.Environment.EnvironmentName
+}))
+.AllowAnonymous();
 
 app.Run();

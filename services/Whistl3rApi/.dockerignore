@@ -1,0 +1,17 @@
+# Don't copy these into Docker image
+**/.dockerignore
+**/.env
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/*.user
+**/bin
+**/obj
+**/out
+**/TestResults
+**/.DS_Store
+**/node_modules
+**/*.md
+Dockerfile*
+.github/
