@@ -29,6 +29,9 @@ bld/
 **/credentials.txt
 **/secrets.txt
 
+# BUT allow task definition
+!.aws/task-definition.json
+
 # User-specific files
 *.rsuser
 *.suo
