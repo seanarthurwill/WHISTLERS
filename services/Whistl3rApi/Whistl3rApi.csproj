@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Include=".aws\github-credentials.txt" />
+    <Content Include=".aws\task-definition.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.0" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="3.7.0" />
     <PackageReference Include="AWSSDK.SimpleEmail" Version="3.7.0" />
@@ -24,6 +29,10 @@
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include=".github\workflows\deploy-to-ecs.yml" />
   </ItemGroup>
 
 </Project>

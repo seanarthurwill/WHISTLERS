@@ -96,8 +96,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "http://localhost:5173",
             "http://localhost:5174",
-            "http://localhost:3000",
-            "http://whistl3r-alb-438377692.us-east-2.elb.amazonaws.com"
+            "http://localhost:3000"
         )
         .AllowAnyMethod()
         .AllowAnyHeader()
@@ -130,7 +129,7 @@ builder.Services.AddScoped<IPerformanceReviewService, PerformanceReviewService>(
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ICommunicationService, CommunicationService>();
-
+builder.Services.AddHealthChecks();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -150,15 +149,7 @@ app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
 app.UseAuthorization();
-
+app.MapHealthChecks("/health");
 app.MapControllers();
-
-app.MapGet("/health", () => Results.Ok(new
-{
-    status = "healthy",
-    timestamp = DateTime.UtcNow,
-    environment = app.Environment.EnvironmentName
-}))
-.AllowAnonymous();
 
 app.Run();
