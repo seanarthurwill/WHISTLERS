@@ -14,9 +14,20 @@ namespace Whistl3rApi.Models
         public string? VenueName { get; set; }
         public string HomeTeam { get; set; } = null!;
         public string AwayTeam { get; set; } = null!;
+        public int GameStatusId { get; set; }
+        public string? GameStatusName { get; set; }
+        
+        [NotMapped]
+        public GameStatusDto? GameStatus { get; set; }
         
         [NotMapped]
         public List<OpenPositionDto> OpenPositions { get; set; } = new List<OpenPositionDto>();
+    }
+
+    public class GameStatusDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = null!;
     }
 
     public class OpenPositionDto

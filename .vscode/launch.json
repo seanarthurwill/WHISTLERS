@@ -1,29 +1,13 @@
 {
   "version": "0.2.0",
   "configurations": [
-
     {
-      "name": "Games Service",
+      "name": "Whistl3rApi",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build-games",
-      "program": "${workspaceFolder}/services/Games/bin/Debug/net8.0/Games.dll",
+      "program": "${workspaceFolder}/services/Whistl3rApi/bin/Debug/net8.0/Whistl3rApi.dll",
       "args": [],
-      "cwd": "${workspaceFolder}/services/Games",
-      "stopAtEntry": false,
-      "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://localhost:5004"
-      }
-    },
-    {
-      "name": "Users Service",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build-users",
-      "program": "${workspaceFolder}/services/Users/bin/Debug/net8.0/Users.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/services/Users",
+      "cwd": "${workspaceFolder}/services/Whistl3rApi",
       "stopAtEntry": false,
       "serverReadyAction": {
         "action": "openExternally",
@@ -31,137 +15,6 @@
       },
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "sourceFileMap": {
-        "/Views": "${workspaceFolder}/services/Users/Views"
-      }
-    },
-    {
-      "name": "Communication Service",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build-communication",
-      "program": "${workspaceFolder}/services/Communication/bin/Debug/net8.0/Communication.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/services/Communication",
-      "stopAtEntry": false,
-      "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
-    },
-    {
-      "name": "ApiGateway",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build-apigateway",
-      "program": "${workspaceFolder}/services/ApiGateway/bin/Debug/net8.0/ApiGateway.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/services/ApiGateway",
-      "stopAtEntry": false,
-      "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
-    },
-    {
-      "name": ".NET Core Attach",
-      "type": "coreclr",
-      "request": "attach"
-    },
-
-    {
-      "name": "Docker: Attach to API Gateway",
-      "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickRemoteProcess}",
-      "pipeTransport": {
-        "pipeProgram": "docker",
-        "pipeArgs": ["exec", "-i", "whistl3r-api-gateway"],
-        "debuggerPath": "/vsdbg/vsdbg",
-        "pipeCwd": "${workspaceFolder}",
-        "quoteArgs": false
-      },
-      "sourceFileMap": {
-        "/app": "${workspaceFolder}/services/ApiGateway"
-      }
-    },
-    {
-      "name": "Docker: Attach to Users Service",
-      "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickRemoteProcess}",
-      "pipeTransport": {
-        "pipeProgram": "docker",
-        "pipeArgs": ["exec", "-i", "whistl3r-users"],
-        "debuggerPath": "/vsdbg/vsdbg",
-        "pipeCwd": "${workspaceFolder}",
-        "quoteArgs": false
-      },
-      "sourceFileMap": {
-        "/app": "${workspaceFolder}/services/Users"
-      }
-    },
-    {
-      "name": "Docker: Attach to Games Service",
-      "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickRemoteProcess}",
-      "pipeTransport": {
-        "pipeProgram": "docker",
-        "pipeArgs": ["exec", "-i", "whistl3r-games"],
-        "debuggerPath": "/vsdbg/vsdbg",
-        "pipeCwd": "${workspaceFolder}",
-        "quoteArgs": false
-      },
-      "sourceFileMap": {
-        "/app": "${workspaceFolder}/services/Games"
-      }
-    },
-    {
-      "name": "Docker: Attach to Organizations Service",
-      "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickRemoteProcess}",
-      "pipeTransport": {
-        "pipeProgram": "docker",
-        "pipeArgs": ["exec", "-i", "whistl3r-organizations"],
-        "debuggerPath": "/vsdbg/vsdbg",
-        "pipeCwd": "${workspaceFolder}",
-        "quoteArgs": false
-      },
-      "sourceFileMap": {
-        "/app": "${workspaceFolder}/services/Organizations"
-      }
-    },
-    {
-      "name": "Docker: Attach to Assignors Service",
-      "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickRemoteProcess}",
-      "pipeTransport": {
-        "pipeProgram": "docker",
-        "pipeArgs": ["exec", "-i", "whistl3r-assignors"],
-        "debuggerPath": "/vsdbg/vsdbg",
-        "pipeCwd": "${workspaceFolder}",
-        "quoteArgs": false
-      },
-      "sourceFileMap": {
-        "/app": "${workspaceFolder}/services/Assignors"
-      }
-    },
-    {
-      "name": "Docker: Attach to Communication Service",
-      "type": "coreclr",
-      "request": "attach",
-      "processId": "${command:pickRemoteProcess}",
-      "pipeTransport": {
-        "pipeProgram": "docker",
-        "pipeArgs": ["exec", "-i", "whistl3r-communication"],
-        "debuggerPath": "/vsdbg/vsdbg",
-        "pipeCwd": "${workspaceFolder}",
-        "quoteArgs": false
-      },
-      "sourceFileMap": {
-        "/app": "${workspaceFolder}/services/Communication"
       }
     }
   ]

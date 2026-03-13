@@ -96,6 +96,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
             "http://localhost:5173",
             "http://localhost:5174",
+            "http://localhost:5175",
             "http://localhost:3000"
         )
         .AllowAnyMethod()
@@ -115,6 +116,7 @@ builder.Services.AddSingleton<IEncryptionService, EncryptionService>(); // Singl
 
 builder.Services.AddScoped<IGameService, GameService>();
 builder.Services.AddScoped<IGameAssignmentService, GameAssignmentService>();
+builder.Services.AddScoped<IAgeLevelService, AgeLevelService>();
 builder.Services.AddScoped<ISportService, SportService>();
 builder.Services.AddScoped<ILeagueService, LeagueService>();
 builder.Services.AddScoped<IClaimsService, ClaimsService>();
@@ -144,6 +146,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// CORS must be configured before authentication/authorization
 app.UseCors("AllowReactApp");
 
 app.UseAuthentication();

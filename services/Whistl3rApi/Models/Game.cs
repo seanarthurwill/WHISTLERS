@@ -104,7 +104,7 @@ namespace Whistl3rApi.Models
         public decimal? DistanceKm { get; set; }
 
         // Navigation properties
-        public Game Game { get; set; } = null!;
+        public Game? Game { get; set; }
     }
 
     [Table("sports")]
@@ -174,6 +174,10 @@ namespace Whistl3rApi.Models
         
         [Column("is_active")]
         public bool? IsActive { get; set; }
+
+        [Column("game_length_minutes")]
+        public int? GameLengthMinutes { get; set; }
+
     }
 
     [Table("league_organizations")]

@@ -11,6 +11,7 @@ namespace Whistl3rApi.Models
         public string? VenueName { get; set; }
         public string? HomeClub { get; set; }
         public string? AwayClub { get; set; }
+        public int GameStatusId { get; set; }
         public string? GameStatusName { get; set; }
         public string? OpenPositions { get; set; }
         public string? GameNotes { get; set; }

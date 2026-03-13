@@ -99,17 +99,30 @@ namespace Whistl3rApi.Services
                         g.game_time AS ""GameTime"",
                         v.venue_name AS ""VenueName"",
                         g.home_team AS ""HomeTeam"",
-                        g.away_team AS ""AwayTeam""
+                        g.away_team AS ""AwayTeam"",
+                        g.game_status_id AS ""GameStatusId"",
+                        gs.game_status_name AS ""GameStatusName""
                     FROM games g
                     LEFT JOIN leagues l ON g.league_id = l.league_id
                     LEFT JOIN sports s ON l.sport_id = s.sport_id
                     LEFT JOIN age_levels al ON g.age_level_id = al.age_level_id
                     LEFT JOIN venues v ON g.venue_id = v.venue_id
+                    LEFT JOIN game_status gs ON g.game_status_id = gs.game_status_id
                     WHERE g.game_id = {id}")
                 .FirstOrDefaultAsync();
 
             if (gameDetail == null)
                 return null;
+
+            // Map GameStatus
+            if (gameDetail.GameStatusId > 0 && !string.IsNullOrEmpty(gameDetail.GameStatusName))
+            {
+                gameDetail.GameStatus = new GameStatusDto
+                {
+                    Id = gameDetail.GameStatusId,
+                    Name = gameDetail.GameStatusName
+                };
+            }
 
             // Get open positions for this game
             var openPositions = await _context.Database
@@ -152,7 +165,7 @@ namespace Whistl3rApi.Services
                     .OrderBy(g => g.GameDate)
                     .ToListAsync();
             }
-            
+
             return new List<Game>();
         }
 
@@ -211,6 +224,7 @@ namespace Whistl3rApi.Services
     v.venue_name AS ""VenueName"",
     g.home_team AS ""HomeClub"",
     g.away_team AS ""AwayClub"",
+    g.game_status_id AS ""GameStatusId"",
     gs.game_status_name AS ""GameStatusName"",
     STRING_AGG(
         CASE 
@@ -242,6 +256,7 @@ GROUP BY
     v.venue_name,
     g.home_team,
     g.away_team,
+    g.game_status_id,
     gs.game_status_name
 ORDER BY g.game_date, g.game_time, g.game_id;";
 
@@ -265,7 +280,6 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
         public async Task<IEnumerable<GameAssignment>> GetGameAssignmentsAsync(int gameId)
         {
             return await _context.GameAssignments
-                .Include(ga => ga.Game)
                 .Where(ga => ga.GameId == gameId)
                 .ToListAsync();
         }
@@ -300,6 +314,10 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             assignment.AssignedAt = DateTime.UtcNow;
             _context.GameAssignments.Add(assignment);
             await _context.SaveChangesAsync();
+
+            // Update the game's status based on assignment fulfillment
+            await UpdateGameStatusAsync(assignment.GameId);
+
             return assignment;
         }
 
@@ -316,6 +334,10 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             existing.FinalPayAmount = assignment.FinalPayAmount;
 
             await _context.SaveChangesAsync();
+
+            // Update the game's status based on assignment fulfillment
+            await UpdateGameStatusAsync(existing.GameId);
+
             return existing;
         }
 
@@ -324,8 +346,13 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             var assignment = await _context.GameAssignments.FindAsync(id);
             if (assignment == null) return false;
 
+            int gameId = assignment.GameId;
             _context.GameAssignments.Remove(assignment);
             await _context.SaveChangesAsync();
+
+            // Update the game's status based on assignment fulfillment
+            await UpdateGameStatusAsync(gameId);
+
             return true;
         }
 
@@ -337,9 +364,75 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             assignment.AssignmentStatus = status;
             assignment.AcceptedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            // Update the game's status based on assignment fulfillment
+            await UpdateGameStatusAsync(assignment.GameId);
+
             return true;
         }
-    }
+
+        /// <summary>
+        /// Updates the gameStatusId based on how many required positions are assigned.
+        /// StatusId: 1 = none assigned, 2 = some assigned, 3 = all assigned
+        /// </summary>
+        private async Task UpdateGameStatusAsync(int gameId)
+        {
+            try
+            {
+                // Get the game and its age level
+                var game = await _context.Games.FindAsync(gameId);
+                if (game == null) return;
+
+                // Get all required positions for this age level
+                var requiredPositions = await _context.Database
+                    .SqlQueryRaw<int>(@"
+                        SELECT p.position_id
+                        FROM age_level_positions alp
+                        INNER JOIN positions p ON alp.position_id = p.position_id
+                        WHERE alp.age_level_id = {0} AND alp.is_required = true AND alp.is_active = true",
+                        game.AgeLevelId)
+                    .ToListAsync();
+
+                if (!requiredPositions.Any())
+                {
+                    // No required positions, set status to 3 (all assigned)
+                    game.GameStatusId = 3;
+                }
+                else
+                {
+                    // Get assigned positions for this game
+                    var assignedPositions = await _context.GameAssignments
+                        .Where(ga => ga.GameId == gameId &&
+                                    requiredPositions.Contains(ga.PositionId))
+                        .Select(ga => ga.PositionId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    int totalRequired = requiredPositions.Count;
+                    int totalAssigned = assignedPositions.Count;
+
+                    if (totalAssigned == 0)
+                    {
+                        game.GameStatusId = 1; // None assigned
+                    }
+                    else if (totalAssigned == totalRequired)
+                    {
+                        game.GameStatusId = 3; // All assigned
+                    }
+                    else
+                    {
+                        game.GameStatusId = 2; // Some assigned
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't throw - don't let game status updates break the primary operation
+                Console.WriteLine($"Error updating game status for game {gameId}: {ex.Message}");
+            }
+        }
 
     public class SportService : ISportService
     {
@@ -416,11 +509,11 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             {
                 _logger.LogInformation("Attempting to fetch leagues from database");
                 _logger.LogInformation($"Connection String: {_context.Database.GetConnectionString()}");
-                
+
                 var leagues = await _context.Leagues
                     .OrderBy(l => l.LeagueName)
                     .ToListAsync();
-                    
+
                 _logger.LogInformation($"Successfully fetched {leagues.Count()} leagues");
                 return leagues;
             }
@@ -508,9 +601,9 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
         {
             // Check if a claim already exists for this game, official, and position
             var existingClaim = await _context.GameClaims
-                .FirstOrDefaultAsync(c => 
-                    c.GameId == gameId && 
-                    c.OfficialId == officialId && 
+                .FirstOrDefaultAsync(c =>
+                    c.GameId == gameId &&
+                    c.OfficialId == officialId &&
                     c.PositionId == positionId);
 
             if (existingClaim != null)
@@ -547,7 +640,7 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
 
             // Soft delete by updating status to "Withdrawn"
             claim.ClaimStatus = "Withdrawn";
-            
+
             await _context.SaveChangesAsync();
             return true;
         }
@@ -580,14 +673,14 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
         public async Task<IEnumerable<Venue>> GetVenuesByOrganizationAsync(int organizationId)
         {
             _logger.LogInformation($"[GetVenuesByOrganization] Fetching venues for organization {organizationId}");
-            
+
             var venues = await _context.Venues
                 .Where(v => v.OrganizationId == organizationId && v.IsActive)
                 .OrderBy(v => v.VenueName)
                 .ToListAsync();
-            
+
             _logger.LogInformation($"[GetVenuesByOrganization] Found {venues.Count()} venues for organization {organizationId}");
-            
+
             return venues;
         }
 
@@ -630,4 +723,7 @@ ORDER BY g.game_date, g.game_time, g.game_id;";
             return true;
         }
     }
+
+}
+
 }

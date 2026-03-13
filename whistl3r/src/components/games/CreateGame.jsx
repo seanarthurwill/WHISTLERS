@@ -44,7 +44,7 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
   const [organizations, setOrganizations] = useState([]);
   const [leagues, setLeagues] = useState([]);
   const [venues, setVenues] = useState([]);
-  // const [ageLevels, setAgeLevels] = useState([]);
+  const [agentLevels, setAgentLevels] = useState([]);
   const [gameStatuses, setGameStatuses] = useState([]);
   
   const [error, setError] = useState(null);
@@ -97,7 +97,15 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
         setGameStatuses(statusData);
       }
 
-      // TODO: Fetch age levels when endpoint is available
+      // Fetch age levels
+      const ageLevelsResponse = await fetch(`${API_BASE_URL}/age-levels`, { headers });
+      if (ageLevelsResponse.ok) {
+        const ageLevelsData = await ageLevelsResponse.json();
+        console.log('Age Levels Data:', ageLevelsData);
+        setAgentLevels(ageLevelsData);
+      } else {
+        console.warn('Failed to fetch age levels. Status:', ageLevelsResponse.status);
+      }
     } catch (err) {
       console.error('Error fetching dropdown data:', err);
     }
@@ -244,6 +252,27 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
     }
   };
 
+
+
+  // Handler for agent level dropdown
+  const handleAgentLevelChange = async (value) => {
+    setFormData(prev => ({ ...prev, ageLevelId: value }));
+    try {
+      const token = localStorage.getItem('accessToken');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch(`${API_BASE_URL}/age-levels/${value}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setFormData(prev => ({
+          ...prev,
+          gameLengthMinutes: data.gameLengthMinutes || ''
+        }));
+      }
+    } catch (err) {
+      setFormData(prev => ({ ...prev, gameLengthMinutes: '' }));
+    }
+  };
+
   return (
     <Drawer
       anchor="right"
@@ -358,16 +387,22 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
             </Select>
           </FormControl>
 
-          {/* Age Level ID */}
-          <TextField
-            fullWidth
-            label="Age Level ID"
-            type="number"
-            value={formData.ageLevelId}
-            onChange={(e) => handleInputChange('ageLevelId', e.target.value)}
-            sx={{ mb: 2 }}
-            required
-          />
+          {/* Agent Level ID dropdown */}
+          <FormControl fullWidth sx={{ mb: 2 }} required>
+            <InputLabel>Agent Level</InputLabel>
+            <Select
+              value={formData.ageLevelId}
+              onChange={e => handleAgentLevelChange(e.target.value)}
+              label="Agent Level"
+            >
+              <MenuItem value="">Select Agent Level</MenuItem>
+              {agentLevels && agentLevels.map(level => (
+                <MenuItem key={level.ageLevelId} value={level.ageLevelId}>
+                  {level.ageLevelName}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
           {/* Home Team */}
           <TextField
@@ -401,14 +436,13 @@ function CreateGame({ open, onClose, onCreateSuccess }) {
             required
           />
 
-          {/* Game Time */}
+          {/* Game Time (Minutes) - Auto-populated from agent level */}
           <TextField
             fullWidth
-            label="Game Time"
-            type="time"
-            value={formData.gameTime}
-            onChange={(e) => handleInputChange('gameTime', e.target.value)}
-            InputLabelProps={{ shrink: true }}
+            label="Game Time (Minutes)"
+            type="number"
+            value={formData.gameLengthMinutes}
+            InputProps={{ readOnly: true }}
             sx={{ mb: 2 }}
             required
           />

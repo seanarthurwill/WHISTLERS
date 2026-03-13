@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -32,6 +32,7 @@ function Assignments() {
   const [gameDetails, setGameDetails] = useState({});
   const [officials, setOfficials] = useState({});
   const [positionAssignments, setPositionAssignments] = useState({});
+  const [gameAssignments, setGameAssignments] = useState({});
 
   const handleClaim = (row) => {
     setSelectedGameId(row.gameId);
@@ -55,6 +56,37 @@ function Assignments() {
     }));
   };
 
+  const fetchGameAssignments = async (gameIds) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token || gameIds.length === 0) {
+        return;
+      }
+
+      const assignmentsPromises = gameIds.map(gameId =>
+        fetch(`${API_BASE_URL}/game-assignments/game/${gameId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(async res => {
+          if (res.ok) {
+            const data = await res.json();
+            return { gameId, assignments: data };
+          }
+          return { gameId, assignments: [] };
+        }).catch(() => ({ gameId, assignments: [] }))
+      );
+
+      const results = await Promise.all(assignmentsPromises);
+      const assignmentsLookup = {};
+      results.forEach(({ gameId, assignments }) => {
+        assignmentsLookup[gameId] = assignments;
+      });
+      
+      setGameAssignments(assignmentsLookup);
+    } catch (err) {
+      console.error('Error fetching game assignments:', err);
+    }
+  };
+
   const handleAssignPosition = async (gameId, positionId) => {
     const key = `${gameId}-${positionId}`;
     const selectedOfficialId = positionAssignments[key];
@@ -66,15 +98,50 @@ function Assignments() {
         return;
       }
 
-      // TODO: Replace with actual API endpoint for assignments
-      // If "open" is selected, clear the assignment
+      // If "open" is selected, don't do anything
       if (!selectedOfficialId || selectedOfficialId === 'open') {
-        console.log(`Clearing assignment for game ${gameId}, position ${positionId}`);
-        // API call to clear assignment would go here
-      } else {
-        console.log(`Assigning official ${selectedOfficialId} to game ${gameId}, position ${positionId}`);
-        // API call to assign official would go here
+        setError('Please select an official to assign');
+        return;
       }
+
+      // Get current user details
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const assignedBy = user.OfficialId || user.UserId || 1; // Default to 1 if not found
+
+      // Create assignment
+      const assignmentData = {
+        gameId: parseInt(gameId),
+        officialId: parseInt(selectedOfficialId),
+        positionId: parseInt(positionId),
+        assignmentStatus: 'Assigned',
+        assignedAt: new Date().toISOString(),
+        assignedBy: parseInt(assignedBy)
+      };
+
+      const response = await fetch(`${API_BASE_URL}/game-assignments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(assignmentData)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Assignment error:', errorText);
+        setError('Failed to assign official to position');
+        return;
+      }
+
+      console.log(`Successfully assigned official ${selectedOfficialId} to game ${gameId}, position ${positionId}`);
+      
+      // Clear the selection
+      setPositionAssignments(prev => {
+        const updated = { ...prev };
+        delete updated[key];
+        return updated;
+      });
 
       // Refresh games data after assignment
       await fetchGames();
@@ -122,6 +189,7 @@ function Assignments() {
       
       // Fetch official details for all claiming officials
       const uniqueOfficialIds = [...new Set(flatClaims.map(claim => claim.officialId))];
+      console.log('Unique official IDs from claims:', uniqueOfficialIds);
       await fetchOfficials(uniqueOfficialIds);
       
       const userPendingClaims = flatClaims.filter(
@@ -150,23 +218,33 @@ function Assignments() {
             'Authorization': `Bearer ${token}`
           }
         }).then(async res => {
+          console.log(`Fetch /users/official/${officialId}: status ${res.status}`);
           if (res.ok) {
             const user = await res.json();
+            console.log(`Successfully fetched official ${officialId}:`, user);
             return { officialId, user };
+          } else {
+            const text = await res.text();
+            console.warn(`Failed to fetch official ${officialId}: ${res.status} - ${text}`);
+            return { officialId, user: null };
           }
+        }).catch((err) => {
+          console.error(`Error fetching official ${officialId}:`, err);
           return { officialId, user: null };
-        }).catch(() => ({ officialId, user: null }))
+        })
       );
 
       const results = await Promise.all(officialPromises);
       
       const officialsLookup = {};
       results.forEach(({ officialId, user }) => {
+        console.log(`Official ${officialId}:`, user);
         if (user) {
           officialsLookup[officialId] = user;
         }
       });
       
+      console.log('Officials lookup:', officialsLookup);
       setOfficials(officialsLookup);
     } catch (err) {
       console.error('Error fetching officials:', err);
@@ -191,7 +269,9 @@ function Assignments() {
         const data = await gamesResponse.json();
         setAllGames(data);
         setGames(data);
+        const gameIds = [...new Set(data.map(g => g.gameId))];
         fetchAllGameDetails(data);
+        fetchGameAssignments(gameIds);
       } else {
         setError('Failed to load games');
       }
@@ -250,19 +330,39 @@ function Assignments() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (selectedSport === 'all') {
-      setGames(allGames);
+  const getGamesByStatus = (gamesData) => {
+    if (gameView === 'upcoming') {
+      return gamesData.filter(game => 
+        game.gameStatusId === 1 || game.gameStatusId === 2
+      );
+    } else if (gameView === 'completed') {
+      return gamesData.filter(game => 
+        game.gameStatusId === 3
+      );
     } else {
+      // 'all' view - show all games
+      return gamesData;
+    }
+  };
+
+  useEffect(() => {
+    let filtered = allGames;
+
+    // Apply sport filter
+    if (selectedSport !== 'all') {
       const selectedSportObj = sports.find(s => s.sportId === selectedSport);
       const selectedSportName = selectedSportObj?.sportName;
       
-      const filtered = allGames.filter(game => {
+      filtered = filtered.filter(game => {
         return game.sportName === selectedSportName;
       });
-      setGames(filtered);
     }
-  }, [selectedSport, allGames, sports]);
+
+    // Apply game status filter
+    filtered = getGamesByStatus(filtered);
+
+    setGames(filtered);
+  }, [selectedSport, gameView, allGames, sports]);
 
   const handleSportChange = (event) => {
     setSelectedSport(event.target.value);
@@ -278,9 +378,11 @@ function Assignments() {
       header: () => null,
       cell: ({ row }) => {
         const details = gameDetails[row.original.gameId];
+        const assignments = gameAssignments[row.original.gameId] || [];
         const hasPositions = details?.openPositions && details.openPositions.length > 0;
+        const canExpand = hasPositions || assignments.length > 0;
         
-        if (!hasPositions) return null;
+        if (!canExpand) return null;
         
         return (
           <IconButton
@@ -320,11 +422,11 @@ function Assignments() {
       id: 'claimStatus',
       header: 'Assignment Status',
       cell: ({ row }) => {
-        const hasPendingClaim = userClaims.some(claim => Number(claim.gameId) === Number(row.original.gameId));
-        const value = hasPendingClaim ? 'Pending' : 'Edit';
+        const details = gameDetails[row.original.gameId];
+        const gameStatus = details?.gameStatus?.name || 'Unknown';
         return (
-          <Box sx={{ color: value === 'Pending' ? '#FF5E00' : '#3F9033', fontWeight: 'bold' }}>
-            {value}
+          <Box sx={{ fontWeight: 'bold' }}>
+            {gameStatus}
           </Box>
         );
       },
@@ -397,14 +499,15 @@ function Assignments() {
       header: 'Notes',
       size: 250,
     },
-  ], [gameDetails, userClaims, allClaims]);
+  ], [gameDetails, userClaims, allClaims, gameAssignments]);
 
   const table = useReactTable({
     data: games,
     columns,
     getRowCanExpand: (row) => {
       const details = gameDetails[row.original.gameId];
-      return details?.openPositions && details.openPositions.length > 0;
+      const assignments = gameAssignments[row.original.gameId] || [];
+      return (details?.openPositions && details.openPositions.length > 0) || assignments.length > 0;
     },
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
@@ -420,12 +523,32 @@ function Assignments() {
 
   const renderDetailPanel = (row) => {
     const details = gameDetails[row.original.gameId];
+    const assignments = gameAssignments[row.original.gameId] || [];
     
-    if (!details || !details.openPositions || details.openPositions.length === 0) {
+    if (!details) {
       return null;
     }
 
-    const positions = details.openPositions || [];
+    // Get open positions from API
+    const openPositions = details.openPositions || [];
+    
+    // Create a map of position IDs that already have assignments
+    const assignedPositionIds = new Set(assignments.map(a => a.positionId));
+    
+    // Merge open positions with assigned positions (to keep assigned ones visible)
+    const displayPositions = [
+      ...openPositions,
+      ...assignments
+        .filter(a => !openPositions.some(p => Number(p.positionId) === Number(a.positionId)))
+        .map(a => ({
+          positionId: a.positionId,
+          positionName: `Position ${a.positionId} (Assigned)`
+        }))
+    ];
+
+    if (displayPositions.length === 0) {
+      return null;
+    }
 
     return (
       <Box sx={{ py: 1, pl: '150px', pr: 6, backgroundColor: 'transparent' }}>
@@ -440,7 +563,7 @@ function Assignments() {
             </tr>
           </thead>
           <tbody>
-            {positions.map((position) => {
+            {displayPositions.map((position) => {
               const positionClaims = allClaims.filter(
                 claim => Number(claim.gameId) === Number(row.original.gameId) && 
                          Number(claim.positionId) === Number(position.positionId) &&
@@ -448,22 +571,37 @@ function Assignments() {
               );
               const claimCount = positionClaims.length;
               
-              const assignedOfficial = 'Open';
+              // Get the assigned official for this position if it exists
+              const gamePositionAssignments = gameAssignments[row.original.gameId] || [];
+              const assignment = gamePositionAssignments.find(
+                a => Number(a.positionId) === Number(position.positionId)
+              );
+              
+              let assignedOfficialName = 'Open';
+              if (assignment) {
+                const assignedOfficialData = officials[assignment.officialId];
+                assignedOfficialName = assignedOfficialData 
+                  ? `${assignedOfficialData.firstName || ''} ${assignedOfficialData.lastName || ''}`.trim()
+                  : `Official ${assignment.officialId}`;
+              }
+              
               const assignmentKey = `${row.original.gameId}-${position.positionId}`;
               const selectedValue = positionAssignments[assignmentKey] || 'open';
+              const isAssigned = assignedPositionIds.has(Number(position.positionId));
 
               return (
-                <tr key={position.positionId} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <tr key={`${row.original.gameId}-${position.positionId}`} style={{ borderBottom: '1px solid #f0f0f0', backgroundColor: isAssigned ? '#f5f5f5' : 'transparent' }}>
                   <td style={{ padding: '8px', color: '#333', width: '12%' }}>{position.positionName}</td>
                   <td style={{ padding: '8px', color: '#333', width: '10%' }}>{claimCount}</td>
-                  <td style={{ padding: '8px', color: assignedOfficial === 'Open' ? '#3F9033' : '#000', fontWeight: 500, width: '15%' }}>
-                    {assignedOfficial}
+                  <td style={{ padding: '8px', color: assignedOfficialName === 'Open' ? '#3F9033' : '#000', fontWeight: 500, width: '15%' }}>
+                    {assignedOfficialName}
                   </td>
                   <td style={{ padding: '8px', paddingRight: '25px' }}>
-                    <FormControl size="small" fullWidth>
+                    <FormControl size="small" fullWidth disabled={isAssigned}>
                       <Select
                         value={selectedValue}
                         onChange={(e) => handleAssignmentChange(row.original.gameId, position.positionId, e.target.value)}
+                        disabled={isAssigned}
                         sx={{
                           fontSize: '0.75rem',
                           '& .MuiSelect-select': {
@@ -471,17 +609,17 @@ function Assignments() {
                           }
                         }}
                       >
-                        <MenuItem value="open" sx={{ fontSize: '0.75rem', color: '#3F9033', fontWeight: 600 }}>
+                        <MenuItem key="open" value="open" sx={{ fontSize: '0.75rem', color: '#3F9033', fontWeight: 600 }}>
                           Open
                         </MenuItem>
                         {positionClaims.map((claim) => {
                           const official = officials[claim.officialId];
                           const officialName = official 
-                            ? `${official.firstName || official.FirstName || ''} ${official.lastName || official.LastName || ''}`.trim()
-                            : `Official ID: ${claim.officialId}`;
+                            ? `${official.firstName || ''} ${official.lastName || ''}`.trim()
+                            : `Official ${claim.officialId}`;
                           return (
                             <MenuItem key={claim.gameClaimId} value={claim.officialId} sx={{ fontSize: '0.75rem' }}>
-                              {officialName || `Official ID: ${claim.officialId}`}
+                              {officialName}
                             </MenuItem>
                           );
                         })}
@@ -493,15 +631,16 @@ function Assignments() {
                       variant="contained"
                       size="small"
                       onClick={() => handleAssignPosition(row.original.gameId, position.positionId)}
+                      disabled={isAssigned}
                       sx={{
-                        backgroundColor: '#3F9033',
-                        '&:hover': { backgroundColor: '#5aa84a' },
+                        backgroundColor: isAssigned ? '#ccc' : '#3F9033',
+                        '&:hover': { backgroundColor: isAssigned ? '#ccc' : '#5aa84a' },
                         fontSize: '0.7rem',
                         minWidth: '70px',
                         padding: '4px 12px'
                       }}
                     >
-                      Assign
+                      {isAssigned ? 'Assigned' : 'Assign'}
                     </Button>
                   </td>
                 </tr>
@@ -548,6 +687,7 @@ function Assignments() {
             }}
           >
             <MenuItem value="upcoming">Upcoming Games</MenuItem>
+            <MenuItem value="all">All Games</MenuItem>
             <MenuItem value="completed">Completed Games</MenuItem>
           </Select>
         </FormControl>
@@ -642,7 +782,7 @@ function Assignments() {
             </thead>
             <tbody>
               {table.getRowModel().rows.map(row => (
-                <>
+                <Fragment key={row.id}>
                   <tr
                     key={row.id}
                     style={{
@@ -671,7 +811,7 @@ function Assignments() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

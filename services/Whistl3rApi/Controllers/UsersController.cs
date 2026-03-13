@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Whistl3rApi.Models;
+using Whistl3rApi.Models.DTOs;
 using Whistl3rApi.Services;
 
 namespace Whistl3rApi.Controllers
@@ -39,11 +40,19 @@ namespace Whistl3rApi.Controllers
         }
 
         [HttpGet("official/{officialId}")]
-        public async Task<ActionResult<User>> GetByOfficialId(int officialId)
+        public async Task<ActionResult<UserNameDto>> GetByOfficialId(int officialId)
         {
             var user = await _userService.GetUserByOfficialIdAsync(officialId);
             if (user == null) return NotFound();
-            return Ok(user);
+            
+            var dto = new UserNameDto
+            {
+                UserId = user.UserId,
+                FirstName = user.FirstName ?? string.Empty,
+                LastName = user.LastName ?? string.Empty
+            };
+            
+            return Ok(dto);
         }
 
         [HttpPost]

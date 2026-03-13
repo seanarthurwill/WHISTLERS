@@ -56,6 +56,24 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
     setIsExpanded(!isExpanded);
   };
 
+  // Filter nav items based on user's assignor role
+  const getFilteredNavItems = () => {
+    if (!user) return [];
+    
+    // If user has AssignorId, show all nav items
+    if (user.AssignorId) {
+      return navItems;
+    }
+    
+    // If user doesn't have AssignorId, only show Games-related items
+    return navItems.filter(item => 
+      item.label.toLowerCase().includes('game') || 
+      item.href.toLowerCase().includes('game')
+    );
+  };
+
+  const filteredNavItems = getFilteredNavItems();
+
   const handleAvatarClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -155,7 +173,7 @@ function OneColumnWithNavLayout({ children, navItems = [] }) {
         </div>
         
         <ul className="nav-list">
-          {navItems.map((item, index) => {
+          {filteredNavItems.map((item, index) => {
             const isActive = location.pathname === item.href;
             return (
               <li key={index} className="nav-item">
